@@ -32,6 +32,7 @@ dependencies:
 ```
 
 For reference, here are all the permissions that the plugin automatically adds:
+You don't need to add these.
 
 ```xml
 <!-- For Android 13+ (API level 33+) -->
