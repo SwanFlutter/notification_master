@@ -11,3 +11,7 @@
  * Provided methods to manage and check the active notification service.
  
 
+ ## 0.0.2
+
+ * Fix bub point
+

@@ -31,7 +31,7 @@ Add this plugin to your project's `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  notification_master: ^0.0.1
+  notification_master: ^0.0.2
 ```
 
 **Note:** You only need to manually add the INTERNET permission to your `android/app/src/main/AndroidManifest.xml` file. The plugin automatically adds all other required permissions.
