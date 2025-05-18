@@ -84,8 +84,10 @@ class NotificationMasterPlugin: FlutterPlugin, MethodCallHandler, ActivityAware,
           else -> NotificationCompat.PRIORITY_DEFAULT
         }
         val autoCancel = call.argument<Boolean>("autoCancel") ?: true
+        val targetScreen = call.argument<String>("targetScreen")
+        val extraData = call.argument<Map<String, Any>>("extraData")
 
-        showNotification(title, message, channelId, priority, autoCancel, result)
+        showNotification(title, message, channelId, priority, autoCancel, targetScreen, extraData, result)
       }
       "showBigTextNotification" -> {
         val title = call.argument<String>("title") ?: "Notification"
@@ -94,8 +96,10 @@ class NotificationMasterPlugin: FlutterPlugin, MethodCallHandler, ActivityAware,
         val channelId = call.argument<String>("channelId")
         val priority = call.argument<Int>("priority") ?: NotificationCompat.PRIORITY_DEFAULT
         val autoCancel = call.argument<Boolean>("autoCancel") ?: true
+        val targetScreen = call.argument<String>("targetScreen")
+        val extraData = call.argument<Map<String, Any>>("extraData")
 
-        showBigTextNotification(title, message, bigText, channelId, priority, autoCancel, result)
+        showBigTextNotification(title, message, bigText, channelId, priority, autoCancel, targetScreen, extraData, result)
       }
       "showImageNotification" -> {
         val title = call.argument<String>("title") ?: "Notification"
@@ -104,13 +108,15 @@ class NotificationMasterPlugin: FlutterPlugin, MethodCallHandler, ActivityAware,
         val channelId = call.argument<String>("channelId")
         val priority = call.argument<Int>("priority") ?: NotificationCompat.PRIORITY_DEFAULT
         val autoCancel = call.argument<Boolean>("autoCancel") ?: true
+        val targetScreen = call.argument<String>("targetScreen")
+        val extraData = call.argument<Map<String, Any>>("extraData")
 
         if (imageUrl.isNullOrEmpty()) {
           result.error("INVALID_URL", "Image URL cannot be null or empty", null)
           return
         }
 
-        showImageNotification(title, message, imageUrl, channelId, priority, autoCancel, result)
+        showImageNotification(title, message, imageUrl, channelId, priority, autoCancel, targetScreen, extraData, result)
       }
       "showNotificationWithActions" -> {
         val title = call.argument<String>("title") ?: "Notification"
@@ -119,13 +125,15 @@ class NotificationMasterPlugin: FlutterPlugin, MethodCallHandler, ActivityAware,
         val priority = call.argument<Int>("priority") ?: NotificationCompat.PRIORITY_DEFAULT
         val autoCancel = call.argument<Boolean>("autoCancel") ?: true
         val actions = call.argument<List<Map<String, String>>>("actions")
+        val targetScreen = call.argument<String>("targetScreen")
+        val extraData = call.argument<Map<String, Any>>("extraData")
 
         if (actions.isNullOrEmpty()) {
           result.error("INVALID_ACTIONS", "Actions cannot be null or empty", null)
           return
         }
 
-        showNotificationWithActions(title, message, channelId, actions, priority, autoCancel, result)
+        showNotificationWithActions(title, message, channelId, actions, priority, autoCancel, targetScreen, extraData, result)
       }
       "createCustomChannel" -> {
         val channelId = call.argument<String>("channelId")
@@ -181,8 +189,9 @@ class NotificationMasterPlugin: FlutterPlugin, MethodCallHandler, ActivityAware,
       "startForegroundService" -> {
         val pollingUrl = call.argument<String>("pollingUrl")
         val intervalMinutes = call.argument<Int>("intervalMinutes") ?: DEFAULT_POLLING_INTERVAL_MINUTES
+        val channelId = call.argument<String>("channelId")
 
-        startForegroundService(pollingUrl, intervalMinutes, result)
+        startForegroundService(pollingUrl, intervalMinutes, channelId, result)
       }
       "stopForegroundService" -> {
         stopForegroundService(result)
@@ -256,15 +265,34 @@ class NotificationMasterPlugin: FlutterPlugin, MethodCallHandler, ActivityAware,
     channelId: String?,
     priority: Int,
     autoCancel: Boolean,
+    targetScreen: String?,
+    extraData: Map<String, Any>?,
     result: Result
   ) {
     try {
       val notificationHelper = NotificationHelper(context)
+
+      // Create intent for notification tap action if targetScreen is provided
+      val intent = if (targetScreen != null) {
+        Intent(context, activity?.javaClass).apply {
+          action = Intent.ACTION_VIEW
+          putExtra("route", targetScreen)
+          flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+
+          // Add extra data if provided
+          if (extraData != null) {
+            putExtra("extra_data", extraData.toString())
+          }
+        }
+      } else {
+        null
+      }
+
       val notificationId = notificationHelper.showNotification(
         title,
         message,
         channelId ?: NotificationHelper.DEFAULT_CHANNEL_ID,
-        null,
+        intent,
         priority,
         autoCancel
       )
@@ -285,16 +313,35 @@ class NotificationMasterPlugin: FlutterPlugin, MethodCallHandler, ActivityAware,
     channelId: String?,
     priority: Int,
     autoCancel: Boolean,
+    targetScreen: String?,
+    extraData: Map<String, Any>?,
     result: Result
   ) {
     try {
       val notificationHelper = NotificationHelper(context)
+
+      // Create intent for notification tap action if targetScreen is provided
+      val intent = if (targetScreen != null) {
+        Intent(context, activity?.javaClass).apply {
+          action = Intent.ACTION_VIEW
+          putExtra("route", targetScreen)
+          flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+
+          // Add extra data if provided
+          if (extraData != null) {
+            putExtra("extra_data", extraData.toString())
+          }
+        }
+      } else {
+        null
+      }
+
       val notificationId = notificationHelper.showBigTextNotification(
         title,
         message,
         bigText,
         channelId ?: NotificationHelper.DEFAULT_CHANNEL_ID,
-        null,
+        intent,
         priority,
         autoCancel
       )
@@ -315,16 +362,35 @@ class NotificationMasterPlugin: FlutterPlugin, MethodCallHandler, ActivityAware,
     channelId: String?,
     priority: Int,
     autoCancel: Boolean,
+    targetScreen: String?,
+    extraData: Map<String, Any>?,
     result: Result
   ) {
     try {
       val notificationHelper = NotificationHelper(context)
+
+      // Create intent for notification tap action if targetScreen is provided
+      val intent = if (targetScreen != null) {
+        Intent(context, activity?.javaClass).apply {
+          action = Intent.ACTION_VIEW
+          putExtra("route", targetScreen)
+          flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+
+          // Add extra data if provided
+          if (extraData != null) {
+            putExtra("extra_data", extraData.toString())
+          }
+        }
+      } else {
+        null
+      }
+
       val notificationId = notificationHelper.showImageNotification(
         title,
         message,
         imageUrl,
         channelId ?: NotificationHelper.DEFAULT_CHANNEL_ID,
-        null,
+        intent,
         priority,
         autoCancel
       )
@@ -345,10 +411,28 @@ class NotificationMasterPlugin: FlutterPlugin, MethodCallHandler, ActivityAware,
     actions: List<Map<String, String>>,
     priority: Int,
     autoCancel: Boolean,
+    targetScreen: String?,
+    extraData: Map<String, Any>?,
     result: Result
   ) {
     try {
       val notificationHelper = NotificationHelper(context)
+
+      // Create intent for notification tap action if targetScreen is provided
+      val contentIntent = if (targetScreen != null) {
+        Intent(context, activity?.javaClass).apply {
+          action = Intent.ACTION_VIEW
+          putExtra("route", targetScreen)
+          flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+
+          // Add extra data if provided
+          if (extraData != null) {
+            putExtra("extra_data", extraData.toString())
+          }
+        }
+      } else {
+        null
+      }
 
       // Convert actions to pairs of title and intent
       val actionPairs = actions.mapNotNull { actionMap ->
@@ -377,7 +461,7 @@ class NotificationMasterPlugin: FlutterPlugin, MethodCallHandler, ActivityAware,
         title,
         message,
         channelId ?: NotificationHelper.DEFAULT_CHANNEL_ID,
-        null,
+        contentIntent,
         actionPairs,
         priority,
         autoCancel
@@ -490,6 +574,7 @@ class NotificationMasterPlugin: FlutterPlugin, MethodCallHandler, ActivityAware,
   private fun startForegroundService(
     pollingUrl: String?,
     intervalMinutes: Int,
+    channelId: String?,
     result: Result
   ) {
     if (pollingUrl.isNullOrEmpty()) {
@@ -514,6 +599,9 @@ class NotificationMasterPlugin: FlutterPlugin, MethodCallHandler, ActivityAware,
         action = NotificationForegroundService.ACTION_START_SERVICE
         putExtra(NotificationForegroundService.EXTRA_POLLING_URL, pollingUrl)
         putExtra(NotificationForegroundService.EXTRA_INTERVAL_MINUTES, intervalMinutes.toLong())
+        if (channelId != null) {
+          putExtra(NotificationForegroundService.EXTRA_CHANNEL_ID, channelId)
+        }
       }
 
       // Start the foreground service

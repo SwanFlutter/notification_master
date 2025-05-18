@@ -40,6 +40,8 @@ class MethodChannelNotificationMaster extends NotificationMasterPlatform {
     String? channelId,
     int? priority,
     bool? autoCancel,
+    String? targetScreen,
+    Map<String, dynamic>? extraData,
   }) async {
     final result = await methodChannel.invokeMethod<int>('showNotification', {
       'title': title,
@@ -47,6 +49,8 @@ class MethodChannelNotificationMaster extends NotificationMasterPlatform {
       if (channelId != null) 'channelId': channelId,
       if (priority != null) 'priority': priority,
       if (autoCancel != null) 'autoCancel': autoCancel,
+      if (targetScreen != null) 'targetScreen': targetScreen,
+      if (extraData != null) 'extraData': extraData,
     });
     return result ?? -1;
   }
@@ -59,6 +63,8 @@ class MethodChannelNotificationMaster extends NotificationMasterPlatform {
     String? channelId,
     int? priority,
     bool? autoCancel,
+    String? targetScreen,
+    Map<String, dynamic>? extraData,
   }) async {
     final result = await methodChannel
         .invokeMethod<int>('showBigTextNotification', {
@@ -68,6 +74,8 @@ class MethodChannelNotificationMaster extends NotificationMasterPlatform {
           if (channelId != null) 'channelId': channelId,
           if (priority != null) 'priority': priority,
           if (autoCancel != null) 'autoCancel': autoCancel,
+          if (targetScreen != null) 'targetScreen': targetScreen,
+          if (extraData != null) 'extraData': extraData,
         });
     return result ?? -1;
   }
@@ -80,6 +88,8 @@ class MethodChannelNotificationMaster extends NotificationMasterPlatform {
     String? channelId,
     int? priority,
     bool? autoCancel,
+    String? targetScreen,
+    Map<String, dynamic>? extraData,
   }) async {
     final result = await methodChannel
         .invokeMethod<int>('showImageNotification', {
@@ -89,6 +99,8 @@ class MethodChannelNotificationMaster extends NotificationMasterPlatform {
           if (channelId != null) 'channelId': channelId,
           if (priority != null) 'priority': priority,
           if (autoCancel != null) 'autoCancel': autoCancel,
+          if (targetScreen != null) 'targetScreen': targetScreen,
+          if (extraData != null) 'extraData': extraData,
         });
     return result ?? -1;
   }
@@ -101,6 +113,8 @@ class MethodChannelNotificationMaster extends NotificationMasterPlatform {
     String? channelId,
     int? priority,
     bool? autoCancel,
+    String? targetScreen,
+    Map<String, dynamic>? extraData,
   }) async {
     final result = await methodChannel
         .invokeMethod<int>('showNotificationWithActions', {
@@ -110,6 +124,8 @@ class MethodChannelNotificationMaster extends NotificationMasterPlatform {
           if (channelId != null) 'channelId': channelId,
           if (priority != null) 'priority': priority,
           if (autoCancel != null) 'autoCancel': autoCancel,
+          if (targetScreen != null) 'targetScreen': targetScreen,
+          if (extraData != null) 'extraData': extraData,
         });
     return result ?? -1;
   }
@@ -165,11 +181,13 @@ class MethodChannelNotificationMaster extends NotificationMasterPlatform {
   Future<bool> startForegroundService({
     required String pollingUrl,
     int? intervalMinutes,
+    String? channelId,
   }) async {
     final result = await methodChannel
         .invokeMethod<bool>('startForegroundService', {
           'pollingUrl': pollingUrl,
           if (intervalMinutes != null) 'intervalMinutes': intervalMinutes,
+          if (channelId != null) 'channelId': channelId,
         });
     return result ?? false;
   }

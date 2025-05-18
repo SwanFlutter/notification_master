@@ -106,6 +106,21 @@ await notificationMaster.showNotification(
   message: 'This notification does not auto-cancel on tap',
   autoCancel: false,
 );
+
+// Display a notification that opens a specific screen when tapped
+await notificationMaster.showNotification(
+  title: 'Navigation Notification',
+  message: 'Tap to open the settings screen',
+  targetScreen: '/settings',
+);
+
+// Display a notification that passes data to the target screen
+await notificationMaster.showNotification(
+  title: 'Data Notification',
+  message: 'Tap to view product details',
+  targetScreen: '/product',
+  extraData: {'productId': '12345', 'featured': true},
+);
 ```
 
 ### Big Text Notifications
@@ -116,6 +131,15 @@ await notificationMaster.showBigTextNotification(
   title: 'Big Text Notification',
   message: 'This is a big text notification',
   bigText: 'This is an expanded text that is shown when the notification is expanded. This text can be much longer than the main message and can include multiple paragraphs or detailed information.',
+);
+
+// Display a big text notification that opens a specific screen when tapped
+await notificationMaster.showBigTextNotification(
+  title: 'Article Notification',
+  message: 'New article available',
+  bigText: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam euismod, nisl eget aliquam ultricies, nunc nisl aliquet nunc, quis aliquam nisl nunc eu nisl.',
+  targetScreen: '/article',
+  extraData: {'articleId': '789', 'category': 'technology'},
 );
 ```
 
@@ -135,6 +159,15 @@ await notificationMaster.showImageNotification(
   message: 'This is an important notification with an image',
   imageUrl: 'https://example.com/important-image.jpg',
   priority: 1, // High priority
+);
+
+// Display an image notification that opens a specific screen when tapped
+await notificationMaster.showImageNotification(
+  title: 'Product Image',
+  message: 'Check out our new product',
+  imageUrl: 'https://example.com/product.jpg',
+  targetScreen: '/product',
+  extraData: {'productId': '12345', 'featured': true},
 );
 ```
 
@@ -158,6 +191,18 @@ await notificationMaster.showNotificationWithActions(
   actions: [
     {'title': 'Open App', 'route': '/home'},
   ],
+);
+
+// Display a notification with custom actions and a specific target screen
+await notificationMaster.showNotificationWithActions(
+  title: 'Friend Request',
+  message: 'John Doe sent you a friend request',
+  actions: [
+    {'title': 'Accept', 'route': '/accept-friend'},
+    {'title': 'Decline', 'route': '/decline-friend'},
+  ],
+  targetScreen: '/profile',
+  extraData: {'userId': '12345', 'requestId': '67890'},
 );
 ```
 
@@ -202,6 +247,20 @@ For more reliable notification reception, you can use the foreground service. Th
 await notificationMaster.startForegroundService(
   pollingUrl: 'https://your-api.com/notifications',
   intervalMinutes: 15, // Check every 15 minutes (not a timeout)
+);
+
+// Start foreground service with custom notification channel
+await notificationMaster.startForegroundService(
+  pollingUrl: 'https://your-api.com/notifications',
+  intervalMinutes: 15,
+  channelId: 'foreground_channel',
+  channelName: 'Foreground Service',
+  channelDescription: 'Channel for foreground service notifications',
+  importance: 0, // Default importance
+  enableLights: true,
+  lightColor: 0xFF0000FF, // Blue color
+  enableVibration: false,
+  enableSound: true,
 );
 
 // Stop foreground service

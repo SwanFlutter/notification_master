@@ -23,6 +23,8 @@ class MockNotificationMasterPlatform
     String? channelId,
     int? priority,
     bool? autoCancel,
+    String? targetScreen,
+    Map<String, dynamic>? extraData,
   }) => Future.value(1);
 
   @override
@@ -33,6 +35,8 @@ class MockNotificationMasterPlatform
     String? channelId,
     int? priority,
     bool? autoCancel,
+    String? targetScreen,
+    Map<String, dynamic>? extraData,
   }) => Future.value(2);
 
   @override
@@ -43,6 +47,8 @@ class MockNotificationMasterPlatform
     String? channelId,
     int? priority,
     bool? autoCancel,
+    String? targetScreen,
+    Map<String, dynamic>? extraData,
   }) => Future.value(3);
 
   @override
@@ -53,6 +59,8 @@ class MockNotificationMasterPlatform
     String? channelId,
     int? priority,
     bool? autoCancel,
+    String? targetScreen,
+    Map<String, dynamic>? extraData,
   }) => Future.value(4);
 
   @override
@@ -80,6 +88,7 @@ class MockNotificationMasterPlatform
   Future<bool> startForegroundService({
     required String pollingUrl,
     int? intervalMinutes,
+    String? channelId,
   }) => Future.value(true);
 
   @override

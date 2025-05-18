@@ -1,7 +1,7 @@
 <?php
 /**
  * Notification Server for Android Notification Plugin
- * 
+ *
  * This script provides a simple API for sending notifications to Android devices.
  * It includes:
  * 1. Database setup for storing notifications
@@ -43,6 +43,18 @@ try {
     exit;
 }
 
+// Set headers to allow cross-origin requests
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, PUT, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type');
+header('Content-Type: application/json');
+
+// Handle preflight OPTIONS request
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(204);
+    exit;
+}
+
 // Handle API requests
 $method = $_SERVER['REQUEST_METHOD'];
 
@@ -60,7 +72,6 @@ switch ($method) {
         updateNotificationStatus();
         break;
     default:
-        header('Content-Type: application/json');
         echo json_encode(['error' => 'Invalid request method']);
         break;
 }
@@ -70,19 +81,34 @@ switch ($method) {
  */
 function getNotifications() {
     global $pdo;
-    
+
     try {
+        // First, check if there are any unsent notifications
+        $checkStmt = $pdo->prepare("
+            SELECT COUNT(*) FROM notifications
+            WHERE is_sent = FALSE
+        ");
+        $checkStmt->execute();
+        $count = $checkStmt->fetchColumn();
+
+        // If no unsent notifications, reset all to unsent
+        if ($count == 0) {
+            $resetStmt = $pdo->prepare("UPDATE notifications SET is_sent = FALSE");
+            $resetStmt->execute();
+        }
+
         // Get notifications that are scheduled for now or earlier and not yet sent
         $stmt = $pdo->prepare("
-            SELECT id, title, message, big_text, channel_id 
-            FROM notifications 
-            WHERE (scheduled_at IS NULL OR scheduled_at <= NOW()) 
+            SELECT id, title, message, big_text, channel_id
+            FROM notifications
+            WHERE (scheduled_at IS NULL OR scheduled_at <= NOW())
             AND is_sent = FALSE
-            LIMIT 10
+            ORDER BY scheduled_at ASC, id ASC
+            LIMIT 1
         ");
         $stmt->execute();
         $notifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
+
         // Format the response
         $response = ['notifications' => []];
         foreach ($notifications as $notification) {
@@ -90,26 +116,24 @@ function getNotifications() {
                 'title' => $notification['title'],
                 'message' => $notification['message']
             ];
-            
+
             if (!empty($notification['big_text'])) {
                 $item['bigText'] = $notification['big_text'];
             }
-            
+
             if (!empty($notification['channel_id'])) {
                 $item['channelId'] = $notification['channel_id'];
             }
-            
+
             $response['notifications'][] = $item;
-            
+
             // Mark as sent
             $updateStmt = $pdo->prepare("UPDATE notifications SET is_sent = TRUE WHERE id = ?");
             $updateStmt->execute([$notification['id']]);
         }
-        
-        header('Content-Type: application/json');
+
         echo json_encode($response);
     } catch (PDOException $e) {
-        header('Content-Type: application/json');
         echo json_encode(['error' => 'Failed to get notifications: ' . $e->getMessage()]);
     }
 }
@@ -119,24 +143,24 @@ function getNotifications() {
  */
 function addNotification() {
     global $pdo;
-    
+
     // Get JSON data
     $data = json_decode(file_get_contents('php://input'), true);
-    
+
     if (!isset($data['title']) || !isset($data['message'])) {
         header('Content-Type: application/json');
         echo json_encode(['error' => 'Title and message are required']);
         return;
     }
-    
+
     try {
         $stmt = $pdo->prepare("
-            INSERT INTO notifications (title, message, big_text, channel_id, scheduled_at) 
+            INSERT INTO notifications (title, message, big_text, channel_id, scheduled_at)
             VALUES (?, ?, ?, ?, ?)
         ");
-        
+
         $scheduledAt = isset($data['scheduled_at']) ? $data['scheduled_at'] : null;
-        
+
         $stmt->execute([
             $data['title'],
             $data['message'],
@@ -144,7 +168,7 @@ function addNotification() {
             $data['channel_id'] ?? null,
             $scheduledAt
         ]);
-        
+
         header('Content-Type: application/json');
         echo json_encode(['success' => true, 'id' => $pdo->lastInsertId()]);
     } catch (PDOException $e) {
@@ -158,20 +182,20 @@ function addNotification() {
  */
 function updateNotificationStatus() {
     global $pdo;
-    
+
     // Get JSON data
     $data = json_decode(file_get_contents('php://input'), true);
-    
+
     if (!isset($data['id'])) {
         header('Content-Type: application/json');
         echo json_encode(['error' => 'Notification ID is required']);
         return;
     }
-    
+
     try {
         $stmt = $pdo->prepare("UPDATE notifications SET is_sent = ? WHERE id = ?");
         $stmt->execute([$data['is_sent'] ?? true, $data['id']]);
-        
+
         header('Content-Type: application/json');
         echo json_encode(['success' => true]);
     } catch (PDOException $e) {

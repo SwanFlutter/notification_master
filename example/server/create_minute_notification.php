@@ -1,7 +1,7 @@
 <?php
 /**
  * Create Minute Notification Script
- * 
+ *
  * This script creates a new notification every minute.
  * It should be run as a cron job with the following schedule:
  * * * * * * php /path/to/create_minute_notification.php
@@ -26,23 +26,30 @@ try {
 try {
     // Current time
     $now = date('Y-m-d H:i:s');
-    
+
     // Create notification content
     $title = "Minute Update";
     $message = "Notification at " . date('H:i:s');
     $bigText = "This is an automatic notification created at " . $now . ". " .
                "These notifications are sent every minute to demonstrate the HTTP notification polling feature.";
-    
-    // Randomly select a channel ID
-    $channels = [null, 'high_priority_channel', 'silent_channel', 'media_channel'];
+
+    // Define channels with different priorities
+    $channels = [
+        'high_priority_channel',  // High priority with sound
+        'default_channel',        // Default priority with sound
+        'silent_channel',         // Silent notification
+        'media_channel'           // Media notification
+    ];
+
+    // Use a random channel for variety
     $channelId = $channels[array_rand($channels)];
-    
+
     // Insert the notification
     $stmt = $pdo->prepare("
-        INSERT INTO notifications (title, message, big_text, channel_id, scheduled_at) 
+        INSERT INTO notifications (title, message, big_text, channel_id, scheduled_at)
         VALUES (?, ?, ?, ?, ?)
     ");
-    
+
     $stmt->execute([
         $title,
         $message,
@@ -50,7 +57,7 @@ try {
         $channelId,
         $now // Schedule for immediate delivery
     ]);
-    
+
     echo "Created notification: $title - $message\n";
 } catch (PDOException $e) {
     echo "Failed to create notification: " . $e->getMessage() . "\n";

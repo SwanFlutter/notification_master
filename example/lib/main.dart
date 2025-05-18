@@ -9,6 +9,7 @@ import 'package:notification_master/notification_master.dart';
 
 import 'http_notification_page.dart';
 import 'notification_service_page.dart';
+import 'simple_polling_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -446,11 +447,27 @@ class _NotifinationTestState extends State<NotifinationTest> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
+                    builder: (context) => const SimplePollingPage(),
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Simple HTTP Notification (Recommended)'),
+            ),
+            const SizedBox(height: 8),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
                     builder: (context) => const HttpNotificationPage(),
                   ),
                 );
               },
-              child: const Text('Go to HTTP Notification Page'),
+              child: const Text('Advanced HTTP Notification Page'),
             ),
             const SizedBox(height: 8),
             ElevatedButton(

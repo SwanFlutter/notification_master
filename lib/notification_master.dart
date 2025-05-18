@@ -33,6 +33,8 @@ class NotificationMaster {
   /// - [channelId]: Optional custom channel ID (defaults to the default channel)
   /// - [priority]: Optional notification priority (for Android < 8.0)
   /// - [autoCancel]: Whether the notification should be auto-canceled when tapped
+  /// - [targetScreen]: Optional screen name to open when notification is tapped
+  /// - [extraData]: Optional map of extra data to pass to the target screen
   ///
   /// Returns the notification ID.
   Future<int> showNotification({
@@ -41,6 +43,8 @@ class NotificationMaster {
     String? channelId,
     int? priority,
     bool? autoCancel,
+    String? targetScreen,
+    Map<String, dynamic>? extraData,
   }) {
     return NotificationMasterPlatform.instance.showNotification(
       title: title,
@@ -48,6 +52,8 @@ class NotificationMaster {
       channelId: channelId,
       priority: priority,
       autoCancel: autoCancel,
+      targetScreen: targetScreen,
+      extraData: extraData,
     );
   }
 
@@ -60,6 +66,8 @@ class NotificationMaster {
   /// - [channelId]: Optional custom channel ID (defaults to the default channel)
   /// - [priority]: Optional notification priority (for Android < 8.0)
   /// - [autoCancel]: Whether the notification should be auto-canceled when tapped
+  /// - [targetScreen]: Optional screen name to open when notification is tapped
+  /// - [extraData]: Optional map of extra data to pass to the target screen
   ///
   /// Returns the notification ID.
   Future<int> showBigTextNotification({
@@ -69,6 +77,8 @@ class NotificationMaster {
     String? channelId,
     int? priority,
     bool? autoCancel,
+    String? targetScreen,
+    Map<String, dynamic>? extraData,
   }) {
     return NotificationMasterPlatform.instance.showBigTextNotification(
       title: title,
@@ -77,6 +87,8 @@ class NotificationMaster {
       channelId: channelId,
       priority: priority,
       autoCancel: autoCancel,
+      targetScreen: targetScreen,
+      extraData: extraData,
     );
   }
 
@@ -89,6 +101,8 @@ class NotificationMaster {
   /// - [channelId]: Optional custom channel ID (defaults to the default channel)
   /// - [priority]: Optional notification priority (for Android < 8.0)
   /// - [autoCancel]: Whether the notification should be auto-canceled when tapped
+  /// - [targetScreen]: Optional screen name to open when notification is tapped
+  /// - [extraData]: Optional map of extra data to pass to the target screen
   ///
   /// Returns the notification ID.
   Future<int> showImageNotification({
@@ -98,6 +112,8 @@ class NotificationMaster {
     String? channelId,
     int? priority,
     bool? autoCancel,
+    String? targetScreen,
+    Map<String, dynamic>? extraData,
   }) {
     return NotificationMasterPlatform.instance.showImageNotification(
       title: title,
@@ -106,6 +122,8 @@ class NotificationMaster {
       channelId: channelId,
       priority: priority,
       autoCancel: autoCancel,
+      targetScreen: targetScreen,
+      extraData: extraData,
     );
   }
 
@@ -118,6 +136,8 @@ class NotificationMaster {
   /// - [channelId]: Optional custom channel ID (defaults to the default channel)
   /// - [priority]: Optional notification priority (for Android < 8.0)
   /// - [autoCancel]: Whether the notification should be auto-canceled when tapped
+  /// - [targetScreen]: Optional screen name to open when notification is tapped
+  /// - [extraData]: Optional map of extra data to pass to the target screen
   ///
   /// Returns the notification ID.
   Future<int> showNotificationWithActions({
@@ -127,6 +147,8 @@ class NotificationMaster {
     String? channelId,
     int? priority,
     bool? autoCancel,
+    String? targetScreen,
+    Map<String, dynamic>? extraData,
   }) {
     return NotificationMasterPlatform.instance.showNotificationWithActions(
       title: title,
@@ -135,6 +157,8 @@ class NotificationMaster {
       channelId: channelId,
       priority: priority,
       autoCancel: autoCancel,
+      targetScreen: targetScreen,
+      extraData: extraData,
     );
   }
 
@@ -222,15 +246,46 @@ class NotificationMaster {
   /// Parameters:
   /// - [pollingUrl]: The URL to poll for notifications
   /// - [intervalMinutes]: Optional polling interval in minutes (defaults to 15)
+  /// - [channelId]: Optional channel ID for the foreground service notification
+  /// - [channelName]: Optional channel name for the foreground service notification
+  /// - [channelDescription]: Optional channel description
+  /// - [importance]: Optional importance level for the notification channel
+  /// - [enableLights]: Whether to enable lights for the notification channel
+  /// - [lightColor]: The light color for the notification channel
+  /// - [enableVibration]: Whether to enable vibration for the notification channel
+  /// - [enableSound]: Whether to enable sound for the notification channel
   ///
   /// Returns true if the service was started successfully.
   Future<bool> startForegroundService({
     required String pollingUrl,
     int? intervalMinutes,
+    String? channelId,
+    String? channelName,
+    String? channelDescription,
+    int? importance,
+    bool? enableLights,
+    int? lightColor,
+    bool? enableVibration,
+    bool? enableSound,
   }) {
+    // Create custom channel if channel parameters are provided
+    if (channelId != null && channelName != null) {
+      createCustomChannel(
+        channelId: channelId,
+        channelName: channelName,
+        channelDescription: channelDescription,
+        importance: importance,
+        enableLights: enableLights,
+        lightColor: lightColor,
+        enableVibration: enableVibration,
+        enableSound: enableSound,
+      );
+    }
+
     return NotificationMasterPlatform.instance.startForegroundService(
       pollingUrl: pollingUrl,
       intervalMinutes: intervalMinutes,
+      channelId: channelId,
     );
   }
 

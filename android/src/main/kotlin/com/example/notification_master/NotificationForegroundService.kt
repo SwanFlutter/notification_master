@@ -39,6 +39,7 @@ class NotificationForegroundService : Service() {
         // Intent extras
         const val EXTRA_POLLING_URL = "polling_url"
         const val EXTRA_INTERVAL_MINUTES = "interval_minutes"
+        const val EXTRA_CHANNEL_ID = "channel_id"
 
         // Constants for stopForeground
         const val STOP_FOREGROUND_REMOVE = 1
@@ -60,6 +61,7 @@ class NotificationForegroundService : Service() {
 
     private var pollingUrl: String? = null
     private var intervalMinutes: Long = DEFAULT_INTERVAL_MINUTES
+    private var customChannelId: String? = null
 
     // Create OkHttpClient for making HTTP requests
     private val client by lazy {
@@ -90,6 +92,7 @@ class NotificationForegroundService : Service() {
             ACTION_START_SERVICE -> {
                 pollingUrl = intent.getStringExtra(EXTRA_POLLING_URL)
                 intervalMinutes = intent.getLongExtra(EXTRA_INTERVAL_MINUTES, DEFAULT_INTERVAL_MINUTES)
+                customChannelId = intent.getStringExtra(EXTRA_CHANNEL_ID)
 
                 if (pollingUrl.isNullOrEmpty()) {
                     Log.e(TAG, "Cannot start service: polling URL is null or empty")
@@ -144,9 +147,12 @@ class NotificationForegroundService : Service() {
      */
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channelId = customChannelId ?: CHANNEL_ID
+            val channelName = if (customChannelId != null) "Custom Notification Channel" else CHANNEL_NAME
+
             val channel = NotificationChannel(
-                CHANNEL_ID,
-                CHANNEL_NAME,
+                channelId,
+                channelName,
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
                 description = "Channel for notification service"
@@ -165,7 +171,10 @@ class NotificationForegroundService : Service() {
         // Get the notification icon resource ID
         val iconResId = resources.getIdentifier("notification_icon", "drawable", packageName)
 
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        // Use custom channel ID if provided
+        val channelId = customChannelId ?: CHANNEL_ID
+
+        return NotificationCompat.Builder(this, channelId)
             .setContentTitle("Notification Service")
             .setContentText("Checking for notifications every $intervalMinutes minutes")
             .setSmallIcon(if (iconResId != 0) iconResId else android.R.drawable.ic_dialog_info)

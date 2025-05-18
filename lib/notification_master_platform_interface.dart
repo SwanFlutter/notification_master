@@ -57,6 +57,8 @@ abstract class NotificationMasterPlatform extends PlatformInterface {
     String? channelId,
     int? priority,
     bool? autoCancel,
+    String? targetScreen,
+    Map<String, dynamic>? extraData,
   }) {
     throw UnimplementedError('showNotification() has not been implemented.');
   }
@@ -71,6 +73,8 @@ abstract class NotificationMasterPlatform extends PlatformInterface {
     String? channelId,
     int? priority,
     bool? autoCancel,
+    String? targetScreen,
+    Map<String, dynamic>? extraData,
   }) {
     throw UnimplementedError(
       'showBigTextNotification() has not been implemented.',
@@ -87,6 +91,8 @@ abstract class NotificationMasterPlatform extends PlatformInterface {
     String? channelId,
     int? priority,
     bool? autoCancel,
+    String? targetScreen,
+    Map<String, dynamic>? extraData,
   }) {
     throw UnimplementedError(
       'showImageNotification() has not been implemented.',
@@ -104,6 +110,8 @@ abstract class NotificationMasterPlatform extends PlatformInterface {
     String? channelId,
     int? priority,
     bool? autoCancel,
+    String? targetScreen,
+    Map<String, dynamic>? extraData,
   }) {
     throw UnimplementedError(
       'showNotificationWithActions() has not been implemented.',
@@ -157,6 +165,7 @@ abstract class NotificationMasterPlatform extends PlatformInterface {
   Future<bool> startForegroundService({
     required String pollingUrl,
     int? intervalMinutes,
+    String? channelId,
   }) {
     throw UnimplementedError(
       'startForegroundService() has not been implemented.',
