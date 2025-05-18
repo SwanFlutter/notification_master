@@ -126,15 +126,15 @@ class _HttpNotificationPageState extends State<HttpNotificationPage> {
           );
 
           if (response.statusCode == 200) {
-            print('Successfully added test notification to server: $url');
+            debugPrint('Successfully added test notification to server: $url');
             break;
           }
         } catch (e) {
-          print('Error adding test notification to server $url: $e');
+          debugPrint('Error adding test notification to server $url: $e');
         }
       }
     } catch (e) {
-      print('Error in _addTestNotificationToServer: $e');
+      debugPrint('Error in _addTestNotificationToServer: $e');
     }
   }
 

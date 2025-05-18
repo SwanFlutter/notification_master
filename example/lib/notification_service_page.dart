@@ -5,7 +5,8 @@ class NotificationServicePage extends StatefulWidget {
   const NotificationServicePage({super.key});
 
   @override
-  State<NotificationServicePage> createState() => _NotificationServicePageState();
+  State<NotificationServicePage> createState() =>
+      _NotificationServicePageState();
 }
 
 class _NotificationServicePageState extends State<NotificationServicePage> {
@@ -26,25 +27,26 @@ class _NotificationServicePageState extends State<NotificationServicePage> {
     });
 
     try {
-      final activeService = await _notificationMaster.getActiveNotificationService();
-      
+      final activeService =
+          await _notificationMaster.getActiveNotificationService();
+
       if (!mounted) return;
-      
+
       setState(() {
         _activeService = activeService;
         _isLoading = false;
       });
     } catch (e) {
       if (!mounted) return;
-      
+
       setState(() {
         _activeService = 'error';
         _isLoading = false;
       });
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error checking service: $e')),
-      );
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error checking service: $e')));
     }
   }
 
@@ -56,9 +58,9 @@ class _NotificationServicePageState extends State<NotificationServicePage> {
 
     try {
       final success = await _notificationMaster.setFirebaseAsActiveService();
-      
+
       if (!mounted) return;
-      
+
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Firebase set as active service')),
@@ -69,19 +71,21 @@ class _NotificationServicePageState extends State<NotificationServicePage> {
           _isLoading = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to set Firebase as active service')),
+          const SnackBar(
+            content: Text('Failed to set Firebase as active service'),
+          ),
         );
       }
     } catch (e) {
       if (!mounted) return;
-      
+
       setState(() {
         _isLoading = false;
       });
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error setting Firebase: $e')),
-      );
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error setting Firebase: $e')));
     }
   }
 
@@ -96,9 +100,9 @@ class _NotificationServicePageState extends State<NotificationServicePage> {
         pollingUrl: 'http://10.0.2.2:3000/',
         intervalMinutes: 15,
       );
-      
+
       if (!mounted) return;
-      
+
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Polling service started')),
@@ -114,14 +118,14 @@ class _NotificationServicePageState extends State<NotificationServicePage> {
       }
     } catch (e) {
       if (!mounted) return;
-      
+
       setState(() {
         _isLoading = false;
       });
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error starting polling: $e')),
-      );
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error starting polling: $e')));
     }
   }
 
@@ -136,9 +140,9 @@ class _NotificationServicePageState extends State<NotificationServicePage> {
         pollingUrl: 'http://10.0.2.2:3000/',
         intervalMinutes: 15,
       );
-      
+
       if (!mounted) return;
-      
+
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Foreground service started')),
@@ -154,11 +158,11 @@ class _NotificationServicePageState extends State<NotificationServicePage> {
       }
     } catch (e) {
       if (!mounted) return;
-      
+
       setState(() {
         _isLoading = false;
       });
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error starting foreground service: $e')),
       );
@@ -175,23 +179,23 @@ class _NotificationServicePageState extends State<NotificationServicePage> {
       // Stop both services to be safe
       await _notificationMaster.stopNotificationPolling();
       await _notificationMaster.stopForegroundService();
-      
+
       if (!mounted) return;
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('All notification services stopped')),
       );
       _checkActiveService();
     } catch (e) {
       if (!mounted) return;
-      
+
       setState(() {
         _isLoading = false;
       });
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error stopping services: $e')),
-      );
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error stopping services: $e')));
     }
   }
 
@@ -205,101 +209,102 @@ class _NotificationServicePageState extends State<NotificationServicePage> {
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Status card
-                  Card(
-                    elevation: 4,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        children: [
-                          const Text(
-                            'Active Notification Service',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
+      body:
+          _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : SingleChildScrollView(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Status card
+                    Card(
+                      elevation: 4,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          children: [
+                            const Text(
+                              'Active Notification Service',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 16),
-                          _buildServiceStatusWidget(),
-                          const SizedBox(height: 8),
-                          Text(
-                            _getServiceDescription(),
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey,
+                            const SizedBox(height: 16),
+                            _buildServiceStatusWidget(),
+                            const SizedBox(height: 8),
+                            Text(
+                              _getServiceDescription(),
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                  
-                  // Service selection
-                  const Text(
-                    'Select Notification Service',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                    const SizedBox(height: 24),
+
+                    // Service selection
+                    const Text(
+                      'Select Notification Service',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  // Firebase option
-                  _buildServiceButton(
-                    title: 'Use Firebase Cloud Messaging',
-                    description: 'Best for battery life and reliability',
-                    icon: Icons.cloud,
-                    color: Colors.blue,
-                    onPressed: _setFirebaseAsActive,
-                    isActive: _activeService == 'firebase',
-                  ),
-                  const SizedBox(height: 12),
-                  
-                  // Polling option
-                  _buildServiceButton(
-                    title: 'Use WorkManager Polling',
-                    description: 'Good battery life, checks periodically',
-                    icon: Icons.sync,
-                    color: Colors.green,
-                    onPressed: _startPollingService,
-                    isActive: _activeService == 'polling',
-                  ),
-                  const SizedBox(height: 12),
-                  
-                  // Foreground service option
-                  _buildServiceButton(
-                    title: 'Use Foreground Service',
-                    description: 'Higher battery usage, but more reliable',
-                    icon: Icons.notifications_active,
-                    color: Colors.orange,
-                    onPressed: _startForegroundService,
-                    isActive: _activeService == 'foreground',
-                  ),
-                  const SizedBox(height: 24),
-                  
-                  // Stop all services
-                  ElevatedButton.icon(
-                    onPressed: _stopAllServices,
-                    icon: const Icon(Icons.stop),
-                    label: const Text('Stop All Notification Services'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    const SizedBox(height: 16),
+
+                    // Firebase option
+                    _buildServiceButton(
+                      title: 'Use Firebase Cloud Messaging',
+                      description: 'Best for battery life and reliability',
+                      icon: Icons.cloud,
+                      color: Colors.blue,
+                      onPressed: _setFirebaseAsActive,
+                      isActive: _activeService == 'firebase',
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 12),
+
+                    // Polling option
+                    _buildServiceButton(
+                      title: 'Use WorkManager Polling',
+                      description: 'Good battery life, checks periodically',
+                      icon: Icons.sync,
+                      color: Colors.green,
+                      onPressed: _startPollingService,
+                      isActive: _activeService == 'polling',
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Foreground service option
+                    _buildServiceButton(
+                      title: 'Use Foreground Service',
+                      description: 'Higher battery usage, but more reliable',
+                      icon: Icons.notifications_active,
+                      color: Colors.orange,
+                      onPressed: _startForegroundService,
+                      isActive: _activeService == 'foreground',
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Stop all services
+                    ElevatedButton.icon(
+                      onPressed: _stopAllServices,
+                      icon: const Icon(Icons.stop),
+                      label: const Text('Stop All Notification Services'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
     );
   }
 
@@ -380,7 +385,7 @@ class _NotificationServicePageState extends State<NotificationServicePage> {
   }) {
     return Card(
       elevation: isActive ? 4 : 1,
-      color: isActive ? color.withOpacity(0.1) : null,
+      color: isActive ? color.withValues(alpha: 0.1) : null,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
@@ -412,16 +417,12 @@ class _NotificationServicePageState extends State<NotificationServicePage> {
                     const SizedBox(height: 4),
                     Text(
                       description,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey,
-                      ),
+                      style: const TextStyle(fontSize: 14, color: Colors.grey),
                     ),
                   ],
                 ),
               ),
-              if (isActive)
-                const Icon(Icons.check_circle, color: Colors.green),
+              if (isActive) const Icon(Icons.check_circle, color: Colors.green),
             ],
           ),
         ),
