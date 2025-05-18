@@ -15,6 +15,16 @@ A Flutter plugin for easy notification management on Android 7 and above (API le
 - 🔋 Foreground service for reliable notification reception
 - 🔄 Intelligent management of notification services to prevent conflicts
 
+
+
+
+
+https://github.com/user-attachments/assets/315d7644-eed1-498b-a55b-cde06f59f7ed
+
+
+
+
+
 ## Installation
 
 Add this plugin to your project's `pubspec.yaml` file:
