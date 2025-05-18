@@ -1,7 +1,7 @@
 name: notification_master
-description: "A new Flutter project."
+description: "A Flutter plugin for easy notification management on Android 7 and above (API level 24+). This plugin automatically handles all necessary permissions, manifest settings, and notification channels."
 version: 0.0.1
-homepage:
+homepage: "https://github.com/swanflutter/notification_master"
 
 environment:
   sdk: ^3.7.2
