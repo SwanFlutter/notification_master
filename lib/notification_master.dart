@@ -1,5 +1,29 @@
 import 'notification_master_platform_interface.dart';
 
+/// Importance levels for notification channels
+enum NotificationImportance {
+  /// Default importance: makes sound (NotificationManager.IMPORTANCE_DEFAULT)
+  defaultImportance(0),
+
+  /// High importance: makes sound and appears as heads-up notification (NotificationManager.IMPORTANCE_HIGH)
+  high(1),
+
+  /// Low importance: no sound (NotificationManager.IMPORTANCE_LOW)
+  low(2),
+
+  /// Min importance: no sound and does not appear in status bar (NotificationManager.IMPORTANCE_MIN)
+  min(3),
+
+  /// Silent importance: no sound and no vibration (NotificationManager.IMPORTANCE_NONE)
+  silent(4);
+
+  /// The integer value of the importance level
+  final int value;
+
+  /// Constructor
+  const NotificationImportance(this.value);
+}
+
 /// The main plugin class for NotificationMaster.
 ///
 /// This plugin provides easy-to-use notification functionality for Android 7+ (API level 24+).
@@ -168,9 +192,9 @@ class NotificationMaster {
   ///
   /// Parameters:
   /// - [channelId]: The channel ID
-  /// - [channelName]: The channel name
+  /// - [channelName]: The channel name (display name shown to users in settings)
   /// - [channelDescription]: Optional channel description
-  /// - [importance]: Optional importance level
+  /// - [importance]: Optional importance level using [NotificationImportance] enum
   /// - [enableLights]: Whether to enable lights
   /// - [lightColor]: The light color
   /// - [enableVibration]: Whether to enable vibration
@@ -181,7 +205,7 @@ class NotificationMaster {
     required String channelId,
     required String channelName,
     String? channelDescription,
-    int? importance,
+    NotificationImportance? importance,
     bool? enableLights,
     int? lightColor,
     bool? enableVibration,
@@ -191,7 +215,7 @@ class NotificationMaster {
       channelId: channelId,
       channelName: channelName,
       channelDescription: channelDescription,
-      importance: importance,
+      importance: importance?.value,
       enableLights: enableLights,
       lightColor: lightColor,
       enableVibration: enableVibration,
@@ -249,7 +273,7 @@ class NotificationMaster {
   /// - [channelId]: Optional channel ID for the foreground service notification
   /// - [channelName]: Optional channel name for the foreground service notification
   /// - [channelDescription]: Optional channel description
-  /// - [importance]: Optional importance level for the notification channel
+  /// - [importance]: Optional importance level for the notification channel using [NotificationImportance] enum
   /// - [enableLights]: Whether to enable lights for the notification channel
   /// - [lightColor]: The light color for the notification channel
   /// - [enableVibration]: Whether to enable vibration for the notification channel
@@ -262,7 +286,7 @@ class NotificationMaster {
     String? channelId,
     String? channelName,
     String? channelDescription,
-    int? importance,
+    NotificationImportance? importance,
     bool? enableLights,
     int? lightColor,
     bool? enableVibration,

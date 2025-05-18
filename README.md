@@ -356,16 +356,30 @@ await notificationMaster.showImageNotification(
 
 ## Importance Levels
 
-When creating custom channels, you can specify different importance levels:
+When creating custom channels, you can use the `NotificationImportance` enum:
 
 ```dart
-// Importance levels
-final int importanceHigh = 1;    // Makes sound and appears as a heads-up notification
-final int importanceDefault = 0; // Makes sound
-final int importanceLow = 2;     // No sound
-final int importanceMin = 3;     // No sound and does not appear in the status bar
-final int importanceSilent = 4;  // No sound and no vibration
+// Use the NotificationImportance enum for better type safety
+await notificationMaster.createCustomChannel(
+  channelId: 'high_priority_channel',
+  channelName: 'High Priority',
+  channelDescription: 'Channel for important notifications',
+  importance: NotificationImportance.high,
+  enableLights: true,
+  lightColor: 0xFFFF0000, // Red color
+  enableVibration: true,
+  enableSound: true,
+);
+
+// Available importance levels:
+// NotificationImportance.defaultImportance - Makes sound (NotificationManager.IMPORTANCE_DEFAULT)
+// NotificationImportance.high - Makes sound and appears as heads-up notification (NotificationManager.IMPORTANCE_HIGH)
+// NotificationImportance.low - No sound (NotificationManager.IMPORTANCE_LOW)
+// NotificationImportance.min - No sound and does not appear in status bar (NotificationManager.IMPORTANCE_MIN)
+// NotificationImportance.silent - No sound and no vibration (NotificationManager.IMPORTANCE_NONE)
 ```
+
+These importance levels correspond directly to Android's `NotificationManager` importance constants.
 
 ## Swipe-to-Dismiss Capability
 

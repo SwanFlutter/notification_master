@@ -66,7 +66,7 @@ class _SimplePollingPageState extends State<SimplePollingPage> {
       channelId: 'high_priority_channel',
       channelName: 'High Priority',
       channelDescription: 'Channel for important notifications',
-      importance: 1, // High importance
+      importance: NotificationImportance.high,
       enableLights: true,
       lightColor: 0xFFFF0000, // Red color
       enableVibration: true,
@@ -78,7 +78,7 @@ class _SimplePollingPageState extends State<SimplePollingPage> {
       channelId: 'default_channel',
       channelName: 'Default Notifications',
       channelDescription: 'Channel for regular notifications',
-      importance: 0, // Default importance
+      importance: NotificationImportance.defaultImportance,
       enableLights: true,
       lightColor: 0xFF00FF00, // Green color
       enableVibration: true,
@@ -90,7 +90,7 @@ class _SimplePollingPageState extends State<SimplePollingPage> {
       channelId: 'silent_channel',
       channelName: 'Silent Notifications',
       channelDescription: 'Channel for silent notifications',
-      importance: 4, // Silent importance
+      importance: NotificationImportance.silent,
       enableLights: false,
       enableVibration: false,
       enableSound: false,
@@ -233,7 +233,7 @@ class _SimplePollingPageState extends State<SimplePollingPage> {
       channelId: 'high_priority_channel',
       channelName: 'High Priority',
       channelDescription: 'Channel for important notifications',
-      importance: 1, // High importance
+      importance: NotificationImportance.high,
       enableLights: true,
       lightColor: 0xFFFF0000, // Red color
       enableVibration: true,
