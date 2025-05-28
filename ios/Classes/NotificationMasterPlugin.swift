@@ -8,6 +8,7 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin, UNUserNotificati
   private var pollingUrl: String?
   private var intervalMinutes: Int = 15
   private var isPollingActive = false
+  private var notificationIdCounter: Int = 0
 
   // Service types
   private enum NotificationServiceType: String {
@@ -66,8 +67,8 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin, UNUserNotificati
       let priority = args["priority"] as? Int ?? 0
       let autoCancel = args["autoCancel"] as? Bool ?? true
 
-      showNotification(title: title, message: message, channelId: channelId, priority: priority, autoCancel: autoCancel)
-      result(true)
+      let notificationId = showNotification(title: title, message: message, channelId: channelId, priority: priority, autoCancel: autoCancel)
+      result(notificationId)
 
     // Big text notifications
     case "showBigTextNotification":
@@ -83,8 +84,8 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin, UNUserNotificati
       let priority = args["priority"] as? Int ?? 0
       let autoCancel = args["autoCancel"] as? Bool ?? true
 
-      showBigTextNotification(title: title, message: message, bigText: bigText, channelId: channelId, priority: priority, autoCancel: autoCancel)
-      result(true)
+      let notificationId = showBigTextNotification(title: title, message: message, bigText: bigText, channelId: channelId, priority: priority, autoCancel: autoCancel)
+      result(notificationId)
 
     // Image notifications
     case "showImageNotification":
@@ -100,8 +101,8 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin, UNUserNotificati
       let priority = args["priority"] as? Int ?? 0
       let autoCancel = args["autoCancel"] as? Bool ?? true
 
-      showImageNotification(title: title, message: message, imageUrl: imageUrl, channelId: channelId, priority: priority, autoCancel: autoCancel)
-      result(true)
+      let notificationId = showImageNotification(title: title, message: message, imageUrl: imageUrl, channelId: channelId, priority: priority, autoCancel: autoCancel)
+      result(notificationId)
 
     // Notifications with actions
     case "showNotificationWithActions":
@@ -117,8 +118,8 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin, UNUserNotificati
       let priority = args["priority"] as? Int ?? 0
       let autoCancel = args["autoCancel"] as? Bool ?? true
 
-      showNotificationWithActions(title: title, message: message, actions: actions, channelId: channelId, priority: priority, autoCancel: autoCancel)
-      result(true)
+      let notificationId = showNotificationWithActions(title: title, message: message, actions: actions, channelId: channelId, priority: priority, autoCancel: autoCancel)
+      result(notificationId)
 
     // Notification channels
     case "createCustomChannel":
@@ -190,7 +191,7 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin, UNUserNotificati
 
   // MARK: - Notification Display
 
-  private func showNotification(title: String, message: String, channelId: String?, priority: Int, autoCancel: Bool) {
+  private func showNotification(title: String, message: String, channelId: String?, priority: Int, autoCancel: Bool) -> Int {
     let content = UNMutableNotificationContent()
     content.title = title
     content.body = message
@@ -200,8 +201,10 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin, UNUserNotificati
       content.sound = UNNotificationSound.default
     }
 
-    // Create a unique identifier
-    let identifier = UUID().uuidString
+    // Generate a unique notification ID
+    notificationIdCounter += 1
+    let notificationId = notificationIdCounter
+    let identifier = "notification_\(notificationId)"
 
     // Create the request
     let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
@@ -212,9 +215,11 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin, UNUserNotificati
         print("Error showing notification: \(error)")
       }
     }
+
+    return notificationId
   }
 
-  private func showBigTextNotification(title: String, message: String, bigText: String, channelId: String?, priority: Int, autoCancel: Bool) {
+  private func showBigTextNotification(title: String, message: String, bigText: String, channelId: String?, priority: Int, autoCancel: Bool) -> Int {
     let content = UNMutableNotificationContent()
     content.title = title
     content.body = message
@@ -225,8 +230,10 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin, UNUserNotificati
       content.sound = UNNotificationSound.default
     }
 
-    // Create a unique identifier
-    let identifier = UUID().uuidString
+    // Generate a unique notification ID
+    notificationIdCounter += 1
+    let notificationId = notificationIdCounter
+    let identifier = "notification_\(notificationId)"
 
     // Create the request
     let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
@@ -237,9 +244,11 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin, UNUserNotificati
         print("Error showing big text notification: \(error)")
       }
     }
+
+    return notificationId
   }
 
-  private func showImageNotification(title: String, message: String, imageUrl: String, channelId: String?, priority: Int, autoCancel: Bool) {
+  private func showImageNotification(title: String, message: String, imageUrl: String, channelId: String?, priority: Int, autoCancel: Bool) -> Int {
     let content = UNMutableNotificationContent()
     content.title = title
     content.body = message
@@ -248,6 +257,11 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin, UNUserNotificati
     if priority > 0 {
       content.sound = UNNotificationSound.default
     }
+
+    // Generate a unique notification ID
+    notificationIdCounter += 1
+    let notificationId = notificationIdCounter
+    let identifier = "notification_\(notificationId)"
 
     // Download the image and create an attachment
     if let url = URL(string: imageUrl) {
@@ -258,7 +272,7 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin, UNUserNotificati
             content.attachments = [attachment]
 
             // Create the request
-            let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+            let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
 
             // Add the request to the notification center
             UNUserNotificationCenter.current().add(request, withCompletionHandler: nil)
@@ -268,9 +282,11 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin, UNUserNotificati
         }
       }
     }
+
+    return notificationId
   }
 
-  private func showNotificationWithActions(title: String, message: String, actions: [[String: String]], channelId: String?, priority: Int, autoCancel: Bool) {
+  private func showNotificationWithActions(title: String, message: String, actions: [[String: String]], channelId: String?, priority: Int, autoCancel: Bool) -> Int {
     // Set up notification actions
     setupNotificationActions()
 
@@ -284,11 +300,18 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin, UNUserNotificati
       content.sound = UNNotificationSound.default
     }
 
+    // Generate a unique notification ID
+    notificationIdCounter += 1
+    let notificationId = notificationIdCounter
+    let identifier = "notification_\(notificationId)"
+
     // Create the request
-    let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+    let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
 
     // Add the request to the notification center
     UNUserNotificationCenter.current().add(request, withCompletionHandler: nil)
+
+    return notificationId
   }
 
   private func setupNotificationActions() {
