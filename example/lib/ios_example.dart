@@ -47,8 +47,7 @@ class _IOSNotificationExampleState extends State<IOSNotificationExample> {
       platformVersion =
           await _notificationMaster.getPlatformVersion() ??
           'Unknown platform version';
-      hasPermission =
-          await _notificationMaster.checkNotificationPermission() ?? false;
+      hasPermission = await _notificationMaster.checkNotificationPermission();
     } on PlatformException {
       platformVersion = 'Failed to get platform version.';
       hasPermission = false;
@@ -127,10 +126,10 @@ class _IOSNotificationExampleState extends State<IOSNotificationExample> {
                                 final result = await _notificationMaster
                                     .requestNotificationPermission();
                                 setState(() {
-                                  _hasPermission = result ?? false;
+                                  _hasPermission = result;
                                 });
                                 _showSnackBar(
-                                  'Permission ${result ?? false ? "granted" : "denied"}',
+                                  'Permission ${result ? "granted" : "denied"}',
                                 );
                               },
                               icon: const Icon(Icons.notifications_active),

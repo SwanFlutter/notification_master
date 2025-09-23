@@ -1,5 +1,6 @@
+// ignore_for_file: unused_local_variable
+
 import 'dart:async';
-import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -35,7 +36,9 @@ class _LinuxExamplePageState extends State<LinuxExamplePage> {
   Future<void> initPlatformState() async {
     String platformVersion;
     try {
-      platformVersion = await _notificationMaster.getPlatformVersion() ?? 'Unknown platform version';
+      platformVersion =
+          await _notificationMaster.getPlatformVersion() ??
+          'Unknown platform version';
     } on PlatformException {
       platformVersion = 'Failed to get platform version.';
     }
@@ -47,7 +50,8 @@ class _LinuxExamplePageState extends State<LinuxExamplePage> {
   }
 
   Future<void> _checkPermission() async {
-    final hasPermission = await _notificationMaster.checkNotificationPermission();
+    final hasPermission = await _notificationMaster
+        .checkNotificationPermission();
     setState(() {
       _hasPermission = hasPermission;
     });
@@ -59,7 +63,11 @@ class _LinuxExamplePageState extends State<LinuxExamplePage> {
     setState(() {
       _hasPermission = granted;
     });
-    _showSnackBar(granted ? 'Linux notification permission granted!' : 'Linux notification permission denied!');
+    _showSnackBar(
+      granted
+          ? 'Linux notification permission granted!'
+          : 'Linux notification permission denied!',
+    );
   }
 
   Future<void> _showLinuxNotification() async {
@@ -69,11 +77,11 @@ class _LinuxExamplePageState extends State<LinuxExamplePage> {
     }
 
     final notificationId = await _notificationMaster.showNotification(
-        id: 500, // Custom notification ID for Linux
-        title: 'Linux Notification',
-        message: 'This is a native Linux notification using libnotify!',
-        channelId: 'linux_default',
-      );
+      id: 500, // Custom notification ID for Linux
+      title: 'Linux Notification',
+      message: 'This is a native Linux notification using libnotify!',
+      channelId: 'linux_default',
+    );
     _showSnackBar('Linux desktop notification sent!');
   }
 
@@ -128,11 +136,16 @@ class _LinuxExamplePageState extends State<LinuxExamplePage> {
                     children: [
                       const Text(
                         '🐧 Linux Platform Info',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       Text('Platform Version: $_platformVersion'),
-                      Text('Permission Status: ${_hasPermission ? "✅ Granted" : "❌ Not Granted"}'),
+                      Text(
+                        'Permission Status: ${_hasPermission ? "✅ Granted" : "❌ Not Granted"}',
+                      ),
                       const SizedBox(height: 8),
                       const Text(
                         'Features:',
@@ -196,7 +209,10 @@ class _LinuxExamplePageState extends State<LinuxExamplePage> {
                     children: [
                       Text(
                         'Linux-Specific Features:',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       SizedBox(height: 8),
                       Text('✅ libnotify Integration'),
@@ -220,7 +236,10 @@ class _LinuxExamplePageState extends State<LinuxExamplePage> {
                     children: [
                       Text(
                         '📋 Installation Requirements:',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       SizedBox(height: 8),
                       Text('sudo apt-get install libnotify-dev'),

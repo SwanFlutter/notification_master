@@ -48,8 +48,7 @@ class _AndroidNotificationExampleState
       platformVersion =
           await _notificationMaster.getPlatformVersion() ??
           'Unknown platform version';
-      hasPermission =
-          await _notificationMaster.checkNotificationPermission() ?? false;
+      hasPermission = await _notificationMaster.checkNotificationPermission();
     } on PlatformException {
       platformVersion = 'Failed to get platform version.';
       hasPermission = false;
@@ -110,10 +109,10 @@ class _AndroidNotificationExampleState
                               final result = await _notificationMaster
                                   .requestNotificationPermission();
                               setState(() {
-                                _hasPermission = result ?? false;
+                                _hasPermission = result;
                               });
                               _showSnackBar(
-                                'Permission ${result ?? false ? "granted" : "denied"}',
+                                'Permission ${result ? "granted" : "denied"}',
                               );
                             },
                             style: ElevatedButton.styleFrom(
