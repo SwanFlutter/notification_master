@@ -56,28 +56,36 @@ Manages notification creation and display with support for:
 ## Configuration
 
 ### AndroidManifest.xml Requirements
+
+**✅ No Manual Configuration Required!**
+
+The `notification_master` plugin automatically includes all necessary permissions and service declarations in its own AndroidManifest.xml. When you add the plugin to your project, Flutter automatically merges these configurations with your app's manifest.
+
+**Included by default:**
+- All required permissions (INTERNET, POST_NOTIFICATIONS, FOREGROUND_SERVICE, etc.)
+- Service declarations (NotificationForegroundService, NotificationReceiver, etc.)
+- WorkManager initialization
+- Network security configuration for HTTP requests
+
+**You don't need to manually add anything to your AndroidManifest.xml!**
+
+### Optional: Custom Network Security (for HTTP polling)
+If you need to customize network security settings for your specific server endpoints, you can create your own `network_security_config.xml` in `android/app/src/main/res/xml/`:
+
 ```xml
-<!-- Required permissions -->
-<uses-permission android:name="android.permission.INTERNET" />
-<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-<uses-permission android:name="android.permission.WAKE_LOCK" />
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">your-server.com</domain>
+        <domain includeSubdomains="true">api.yourapp.com</domain>
+    </domain-config>
+</network-security-config>
+```
 
-<!-- For Android 14+ foreground service types -->
-<uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
-
-<!-- Service declarations -->
-<service
-    android:name=".NotificationHelperService"
-    android:enabled="true"
-    android:exported="false"
-    android:foregroundServiceType="dataSync" />
-
-<!-- WorkManager initialization -->
-<provider
-    android:name="androidx.work.impl.WorkManagerInitializer"
-    android:authorities="${applicationId}.workmanager-init"
-    android:exported="false" />
+Then reference it in your app's AndroidManifest.xml:
+```xml
+<application
+    android:networkSecurityConfig="@xml/network_security_config">
 ```
 
 ### build.gradle Dependencies

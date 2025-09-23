@@ -28,6 +28,18 @@ Then run:
 flutter pub get
 ```
 
+### Android Setup
+
+**✅ No additional configuration required!** 
+
+The plugin automatically includes all necessary permissions and service declarations. Just add the dependency and you're ready to go!
+
+For detailed Android-specific information, see [ANDROID_README.md](ANDROID_README.md).
+
+### iOS Setup
+
+For iOS-specific setup instructions, see [IOS_README.md](IOS_README.md).
+
 ## Quick Start
 
 ```dart

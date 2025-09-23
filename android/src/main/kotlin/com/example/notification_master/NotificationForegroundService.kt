@@ -94,17 +94,27 @@ class NotificationForegroundService : Service() {
                 intervalMinutes = intent.getLongExtra(EXTRA_INTERVAL_MINUTES, DEFAULT_INTERVAL_MINUTES)
                 customChannelId = intent.getStringExtra(EXTRA_CHANNEL_ID)
 
+                Log.d(TAG, "Starting service with URL: $pollingUrl, interval: $intervalMinutes, channel: $customChannelId")
+
                 if (pollingUrl.isNullOrEmpty()) {
                     Log.e(TAG, "Cannot start service: polling URL is null or empty")
                     stopSelf()
                     return START_NOT_STICKY
                 }
 
-                startForegroundService()
-                startPolling()
-                isRunning.set(true)
+                try {
+                    startForegroundService()
+                    startPolling()
+                    isRunning.set(true)
+                    Log.d(TAG, "Service started successfully")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to start foreground service", e)
+                    stopSelf()
+                    return START_NOT_STICKY
+                }
             }
             ACTION_STOP_SERVICE -> {
+                Log.d(TAG, "Stopping service")
                 stopPolling()
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                     stopForeground(STOP_FOREGROUND_REMOVE)
@@ -137,6 +147,8 @@ class NotificationForegroundService : Service() {
      * Start the service in foreground mode with a persistent notification
      */
     private fun startForegroundService() {
+        // Ensure notification channel is created before creating notification
+        createNotificationChannel()
         val notification = createServiceNotification()
         startForeground(NOTIFICATION_ID, notification)
         Log.d(TAG, "Started foreground service")
@@ -161,6 +173,7 @@ class NotificationForegroundService : Service() {
 
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             notificationManager.createNotificationChannel(channel)
+            Log.d(TAG, "Created notification channel: $channelId")
         }
     }
 
@@ -174,12 +187,16 @@ class NotificationForegroundService : Service() {
         // Use custom channel ID if provided
         val channelId = customChannelId ?: CHANNEL_ID
 
+        Log.d(TAG, "Creating service notification with channel: $channelId")
+
         return NotificationCompat.Builder(this, channelId)
             .setContentTitle("Notification Service")
             .setContentText("Checking for notifications every $intervalMinutes minutes")
             .setSmallIcon(if (iconResId != 0) iconResId else android.R.drawable.ic_dialog_info)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
+            .setAutoCancel(false)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .build()
     }
 
