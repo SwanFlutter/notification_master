@@ -19,7 +19,7 @@ Add this plugin to your project's `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  notification_master: ^0.0.3
+  notification_master: ^0.0.4
 ```
 
 Then run:

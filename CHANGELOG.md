@@ -1,3 +1,10 @@
+## 0.0.4
+
+* fix bug
+
+
+---
+
 ## 0.0.3
 
 * Add web support.
