@@ -1,27 +1,29 @@
+## 0.0.3
+
+* Add web support.
+* Add macos support.
+* Add windows support.
+* Add linux support.
+* fix bugs
+
+---
+
+## 0.0.2
+
+* Fix bugs.
+
+---
+
 ## 0.0.1
 
- * Initial release with basic notification functionality.
- * Added support for custom notification channels.
- * Implemented HTTP/JSON notification polling.
- * Added foreground service for reliable notification reception.
- * Included permission management for Android 13 and above.
- * Provided methods to check and request notification permission.
- * Implemented swipe-to-dismiss capability for notifications.
- * Added support for different importance levels in custom channels.
- * Provided methods to manage and check the active notification service.
- 
+* Initial release with basic notification functionality.
+* Added support for custom notification channels.
+* Implemented HTTP/JSON notification polling.
+* Added foreground service for reliable notification reception.
+* Included permission management for Android 13 and above.
+* Provided methods to check and request notification permission.
+* Implemented swipe-to-dismiss capability for notifications.
+* Added support for different importance levels in custom channels.
+* Provided methods to manage and check the active notification service.
 
- ## 0.0.2
-
- * Fix bub point
-
-
- ## 0.0.3
-
- * Add web support
- * Add android support
- * Add ios support
- * Add macos support
- * Add windows support
- * Add linux support
- 
+---

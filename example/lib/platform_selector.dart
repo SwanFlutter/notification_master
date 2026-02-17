@@ -51,18 +51,11 @@ class UnsupportedPlatformPage extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                Icons.error_outline,
-                size: 64,
-                color: Colors.red,
-              ),
+              Icon(Icons.error_outline, size: 64, color: Colors.red),
               SizedBox(height: 16),
               Text(
                 'Unsupported Platform',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
               SizedBox(height: 8),
               Text(
@@ -73,10 +66,7 @@ class UnsupportedPlatformPage extends StatelessWidget {
               SizedBox(height: 16),
               Text(
                 'Supported Platforms:',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               SizedBox(height: 8),
               Text('🤖 Android'),

@@ -2,8 +2,10 @@ library;
 
 import 'notification_master_platform_interface.dart';
 
+export 'notification_master_desktop.dart';
 export 'notification_master_platform_interface.dart'
     show NotificationImportance;
+export 'unified_notification_service.dart';
 
 /// The main plugin class for NotificationMaster.
 ///

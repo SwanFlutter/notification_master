@@ -149,8 +149,8 @@ class _HttpNotificationPageState extends State<HttpNotificationPage> {
   Future<void> _checkPollingStatus() async {
     try {
       // Get the active notification service
-      final activeService =
-          await _notificationMaster.getActiveNotificationService();
+      final activeService = await _notificationMaster
+          .getActiveNotificationService();
 
       setState(() {
         _isPolling = activeService == "polling";
@@ -202,8 +202,8 @@ class _HttpNotificationPageState extends State<HttpNotificationPage> {
     }
 
     // Check permission
-    final hasPermission =
-        await _notificationMaster.checkNotificationPermission();
+    final hasPermission = await _notificationMaster
+        .checkNotificationPermission();
     if (!hasPermission) {
       if (!mounted) return;
 
@@ -294,8 +294,8 @@ class _HttpNotificationPageState extends State<HttpNotificationPage> {
     }
 
     // Check permission
-    final hasPermission =
-        await _notificationMaster.checkNotificationPermission();
+    final hasPermission = await _notificationMaster
+        .checkNotificationPermission();
     if (!hasPermission) {
       if (!mounted) return;
 
@@ -372,20 +372,18 @@ class _HttpNotificationPageState extends State<HttpNotificationPage> {
             Container(
               padding: const EdgeInsets.all(16.0),
               decoration: BoxDecoration(
-                color:
-                    _statusMessage.contains('Foreground service')
-                        ? Colors.green.shade100
-                        : _isPolling
-                        ? Colors.blue.shade100
-                        : Colors.grey.shade200,
+                color: _statusMessage.contains('Foreground service')
+                    ? Colors.green.shade100
+                    : _isPolling
+                    ? Colors.blue.shade100
+                    : Colors.grey.shade200,
                 borderRadius: BorderRadius.circular(8.0),
                 border: Border.all(
-                  color:
-                      _statusMessage.contains('Foreground service')
-                          ? Colors.green.shade300
-                          : _isPolling
-                          ? Colors.blue.shade300
-                          : Colors.grey.shade300,
+                  color: _statusMessage.contains('Foreground service')
+                      ? Colors.green.shade300
+                      : _isPolling
+                      ? Colors.blue.shade300
+                      : Colors.grey.shade300,
                 ),
               ),
               child: Column(
@@ -399,12 +397,11 @@ class _HttpNotificationPageState extends State<HttpNotificationPage> {
                             : _isPolling
                             ? Icons.notifications
                             : Icons.notifications_off,
-                        color:
-                            _statusMessage.contains('Foreground service')
-                                ? Colors.green.shade800
-                                : _isPolling
-                                ? Colors.blue.shade800
-                                : Colors.grey.shade800,
+                        color: _statusMessage.contains('Foreground service')
+                            ? Colors.green.shade800
+                            : _isPolling
+                            ? Colors.blue.shade800
+                            : Colors.grey.shade800,
                       ),
                       const SizedBox(width: 8),
                       Text(
@@ -416,12 +413,11 @@ class _HttpNotificationPageState extends State<HttpNotificationPage> {
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color:
-                              _statusMessage.contains('Foreground service')
-                                  ? Colors.green.shade800
-                                  : _isPolling
-                                  ? Colors.blue.shade800
-                                  : Colors.grey.shade800,
+                          color: _statusMessage.contains('Foreground service')
+                              ? Colors.green.shade800
+                              : _isPolling
+                              ? Colors.blue.shade800
+                              : Colors.grey.shade800,
                         ),
                       ),
                     ],
@@ -430,12 +426,11 @@ class _HttpNotificationPageState extends State<HttpNotificationPage> {
                   Text(
                     _statusMessage,
                     style: TextStyle(
-                      color:
-                          _statusMessage.contains('Foreground service')
-                              ? Colors.green.shade800
-                              : _isPolling
-                              ? Colors.blue.shade800
-                              : Colors.grey.shade800,
+                      color: _statusMessage.contains('Foreground service')
+                          ? Colors.green.shade800
+                          : _isPolling
+                          ? Colors.blue.shade800
+                          : Colors.grey.shade800,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -479,25 +474,23 @@ class _HttpNotificationPageState extends State<HttpNotificationPage> {
                       labelText: 'Predefined URLs',
                       border: OutlineInputBorder(),
                     ),
-                    value: _selectedUrl,
-                    items:
-                        _urlOptions.map((option) {
-                          return DropdownMenuItem<String>(
-                            value: option['value'],
-                            child: Text(option['label']!),
-                          );
-                        }).toList(),
-                    onChanged:
-                        !_isPolling
-                            ? (value) {
-                              if (value != null) {
-                                setState(() {
-                                  _selectedUrl = value;
-                                  _urlController.text = value;
-                                });
-                              }
+                    initialValue: _selectedUrl,
+                    items: _urlOptions.map((option) {
+                      return DropdownMenuItem<String>(
+                        value: option['value'],
+                        child: Text(option['label']!),
+                      );
+                    }).toList(),
+                    onChanged: !_isPolling
+                        ? (value) {
+                            if (value != null) {
+                              setState(() {
+                                _selectedUrl = value;
+                                _urlController.text = value;
+                              });
                             }
-                            : null,
+                          }
+                        : null,
                   ),
 
                   const SizedBox(height: 16),

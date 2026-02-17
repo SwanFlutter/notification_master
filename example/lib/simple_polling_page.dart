@@ -31,8 +31,8 @@ class _SimplePollingPageState extends State<SimplePollingPage> {
   Future<void> _checkServiceStatus() async {
     try {
       // Get the active notification service
-      final activeService =
-          await _notificationMaster.getActiveNotificationService();
+      final activeService = await _notificationMaster
+          .getActiveNotificationService();
 
       setState(() {
         _isPollingActive = activeService == "polling";
@@ -133,8 +133,8 @@ class _SimplePollingPageState extends State<SimplePollingPage> {
   // Start background polling
   Future<void> _startBackgroundPolling() async {
     // Check permission
-    final hasPermission =
-        await _notificationMaster.checkNotificationPermission();
+    final hasPermission = await _notificationMaster
+        .checkNotificationPermission();
     if (!hasPermission) {
       if (!mounted) return;
 
@@ -210,8 +210,8 @@ class _SimplePollingPageState extends State<SimplePollingPage> {
   // Start foreground service
   Future<void> _startForegroundService() async {
     // Check permission
-    final hasPermission =
-        await _notificationMaster.checkNotificationPermission();
+    final hasPermission = await _notificationMaster
+        .checkNotificationPermission();
     if (!hasPermission) {
       if (!mounted) return;
 
@@ -294,20 +294,18 @@ class _SimplePollingPageState extends State<SimplePollingPage> {
               Container(
                 padding: const EdgeInsets.all(16.0),
                 decoration: BoxDecoration(
-                  color:
-                      _isForegroundActive
-                          ? Colors.green.shade100
-                          : _isPollingActive
-                          ? Colors.blue.shade100
-                          : Colors.grey.shade200,
+                  color: _isForegroundActive
+                      ? Colors.green.shade100
+                      : _isPollingActive
+                      ? Colors.blue.shade100
+                      : Colors.grey.shade200,
                   borderRadius: BorderRadius.circular(8.0),
                   border: Border.all(
-                    color:
-                        _isForegroundActive
-                            ? Colors.green.shade300
-                            : _isPollingActive
-                            ? Colors.blue.shade300
-                            : Colors.grey.shade300,
+                    color: _isForegroundActive
+                        ? Colors.green.shade300
+                        : _isPollingActive
+                        ? Colors.blue.shade300
+                        : Colors.grey.shade300,
                   ),
                 ),
                 child: Column(
@@ -321,12 +319,11 @@ class _SimplePollingPageState extends State<SimplePollingPage> {
                               : _isPollingActive
                               ? Icons.notifications
                               : Icons.notifications_off,
-                          color:
-                              _isForegroundActive
-                                  ? Colors.green.shade800
-                                  : _isPollingActive
-                                  ? Colors.blue.shade800
-                                  : Colors.grey.shade800,
+                          color: _isForegroundActive
+                              ? Colors.green.shade800
+                              : _isPollingActive
+                              ? Colors.blue.shade800
+                              : Colors.grey.shade800,
                         ),
                         const SizedBox(width: 8),
                         Text(
@@ -338,12 +335,11 @@ class _SimplePollingPageState extends State<SimplePollingPage> {
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color:
-                                _isForegroundActive
-                                    ? Colors.green.shade800
-                                    : _isPollingActive
-                                    ? Colors.blue.shade800
-                                    : Colors.grey.shade800,
+                            color: _isForegroundActive
+                                ? Colors.green.shade800
+                                : _isPollingActive
+                                ? Colors.blue.shade800
+                                : Colors.grey.shade800,
                           ),
                         ),
                       ],
@@ -352,12 +348,11 @@ class _SimplePollingPageState extends State<SimplePollingPage> {
                     Text(
                       _statusMessage,
                       style: TextStyle(
-                        color:
-                            _isForegroundActive
-                                ? Colors.green.shade800
-                                : _isPollingActive
-                                ? Colors.blue.shade800
-                                : Colors.grey.shade800,
+                        color: _isForegroundActive
+                            ? Colors.green.shade800
+                            : _isPollingActive
+                            ? Colors.blue.shade800
+                            : Colors.grey.shade800,
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -383,13 +378,13 @@ class _SimplePollingPageState extends State<SimplePollingPage> {
                   ),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor:
-                      _isPollingActive ? Colors.white : Colors.blue,
+                  backgroundColor: _isPollingActive
+                      ? Colors.white
+                      : Colors.blue,
                   foregroundColor: _isPollingActive ? Colors.red : Colors.white,
-                  side:
-                      _isPollingActive
-                          ? const BorderSide(color: Colors.red)
-                          : null,
+                  side: _isPollingActive
+                      ? const BorderSide(color: Colors.red)
+                      : null,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24,
                     vertical: 16,
@@ -416,14 +411,15 @@ class _SimplePollingPageState extends State<SimplePollingPage> {
                   ),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor:
-                      _isForegroundActive ? Colors.white : Colors.green,
-                  foregroundColor:
-                      _isForegroundActive ? Colors.red : Colors.white,
-                  side:
-                      _isForegroundActive
-                          ? const BorderSide(color: Colors.red)
-                          : null,
+                  backgroundColor: _isForegroundActive
+                      ? Colors.white
+                      : Colors.green,
+                  foregroundColor: _isForegroundActive
+                      ? Colors.red
+                      : Colors.white,
+                  side: _isForegroundActive
+                      ? const BorderSide(color: Colors.red)
+                      : null,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24,
                     vertical: 16,

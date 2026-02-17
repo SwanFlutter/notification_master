@@ -1,7 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notification_master/notification_master.dart';
 import 'package:notification_master/notification_master_method_channel.dart';
-import 'package:notification_master/notification_master_platform_interface.dart' hide NotificationImportance;
+import 'package:notification_master/notification_master_platform_interface.dart'
+    hide NotificationImportance;
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
 class MockNotificationMasterPlatform

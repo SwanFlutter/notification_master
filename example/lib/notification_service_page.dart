@@ -27,8 +27,8 @@ class _NotificationServicePageState extends State<NotificationServicePage> {
     });
 
     try {
-      final activeService =
-          await _notificationMaster.getActiveNotificationService();
+      final activeService = await _notificationMaster
+          .getActiveNotificationService();
 
       if (!mounted) return;
 
@@ -209,102 +209,98 @@ class _NotificationServicePageState extends State<NotificationServicePage> {
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
-      body:
-          _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : SingleChildScrollView(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Status card
-                    Card(
-                      elevation: 4,
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          children: [
-                            const Text(
-                              'Active Notification Service',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Status card
+                  Card(
+                    elevation: 4,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        children: [
+                          const Text(
+                            'Active Notification Service',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
                             ),
-                            const SizedBox(height: 16),
-                            _buildServiceStatusWidget(),
-                            const SizedBox(height: 8),
-                            Text(
-                              _getServiceDescription(),
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey,
-                              ),
+                          ),
+                          const SizedBox(height: 16),
+                          _buildServiceStatusWidget(),
+                          const SizedBox(height: 8),
+                          Text(
+                            _getServiceDescription(),
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey,
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 24),
+                  ),
+                  const SizedBox(height: 24),
 
-                    // Service selection
-                    const Text(
-                      'Select Notification Service',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
+                  // Service selection
+                  const Text(
+                    'Select Notification Service',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
 
-                    // Firebase option
-                    _buildServiceButton(
-                      title: 'Use Firebase Cloud Messaging',
-                      description: 'Best for battery life and reliability',
-                      icon: Icons.cloud,
-                      color: Colors.blue,
-                      onPressed: _setFirebaseAsActive,
-                      isActive: _activeService == 'firebase',
-                    ),
-                    const SizedBox(height: 12),
+                  // Firebase option
+                  _buildServiceButton(
+                    title: 'Use Firebase Cloud Messaging',
+                    description: 'Best for battery life and reliability',
+                    icon: Icons.cloud,
+                    color: Colors.blue,
+                    onPressed: _setFirebaseAsActive,
+                    isActive: _activeService == 'firebase',
+                  ),
+                  const SizedBox(height: 12),
 
-                    // Polling option
-                    _buildServiceButton(
-                      title: 'Use WorkManager Polling',
-                      description: 'Good battery life, checks periodically',
-                      icon: Icons.sync,
-                      color: Colors.green,
-                      onPressed: _startPollingService,
-                      isActive: _activeService == 'polling',
-                    ),
-                    const SizedBox(height: 12),
+                  // Polling option
+                  _buildServiceButton(
+                    title: 'Use WorkManager Polling',
+                    description: 'Good battery life, checks periodically',
+                    icon: Icons.sync,
+                    color: Colors.green,
+                    onPressed: _startPollingService,
+                    isActive: _activeService == 'polling',
+                  ),
+                  const SizedBox(height: 12),
 
-                    // Foreground service option
-                    _buildServiceButton(
-                      title: 'Use Foreground Service',
-                      description: 'Higher battery usage, but more reliable',
-                      icon: Icons.notifications_active,
-                      color: Colors.orange,
-                      onPressed: _startForegroundService,
-                      isActive: _activeService == 'foreground',
-                    ),
-                    const SizedBox(height: 24),
+                  // Foreground service option
+                  _buildServiceButton(
+                    title: 'Use Foreground Service',
+                    description: 'Higher battery usage, but more reliable',
+                    icon: Icons.notifications_active,
+                    color: Colors.orange,
+                    onPressed: _startForegroundService,
+                    isActive: _activeService == 'foreground',
+                  ),
+                  const SizedBox(height: 24),
 
-                    // Stop all services
-                    ElevatedButton.icon(
-                      onPressed: _stopAllServices,
-                      icon: const Icon(Icons.stop),
-                      label: const Text('Stop All Notification Services'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
+                  // Stop all services
+                  ElevatedButton.icon(
+                    onPressed: _stopAllServices,
+                    icon: const Icon(Icons.stop),
+                    label: const Text('Stop All Notification Services'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
+            ),
     );
   }
 
