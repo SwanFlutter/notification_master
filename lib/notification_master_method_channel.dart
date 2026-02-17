@@ -45,14 +45,14 @@ class MethodChannelNotificationMaster extends NotificationMasterPlatform {
     Map<String, dynamic>? extraData,
   }) async {
     final result = await methodChannel.invokeMethod<int>('showNotification', {
-      if (id != null) 'id': id,
+      'id': ?id,
       'title': title,
       'message': message,
-      if (channelId != null) 'channelId': channelId,
+      'channelId': ?channelId,
       if (importance != null) 'priority': importance.value,
-      if (autoCancel != null) 'autoCancel': autoCancel,
-      if (targetScreen != null) 'targetScreen': targetScreen,
-      if (extraData != null) 'extraData': extraData,
+      'autoCancel': ?autoCancel,
+      'targetScreen': ?targetScreen,
+      'extraData': ?extraData,
     });
     return result ?? -1;
   }
@@ -73,11 +73,11 @@ class MethodChannelNotificationMaster extends NotificationMasterPlatform {
           'title': title,
           'message': message,
           'bigText': bigText,
-          if (channelId != null) 'channelId': channelId,
-          if (importance != null) 'priority': importance.value,
-          if (autoCancel != null) 'autoCancel': autoCancel,
-          if (targetScreen != null) 'targetScreen': targetScreen,
-          if (extraData != null) 'extraData': extraData,
+          'channelId': channelId,
+          'priority': importance?.value,
+          'autoCancel': autoCancel,
+          'targetScreen': targetScreen,
+          'extraData': extraData,
         });
     return result ?? -1;
   }
@@ -98,11 +98,11 @@ class MethodChannelNotificationMaster extends NotificationMasterPlatform {
           'title': title,
           'message': message,
           'imageUrl': imageUrl,
-          if (channelId != null) 'channelId': channelId,
+          'channelId': ?channelId,
           if (importance != null) 'priority': importance.value,
-          if (autoCancel != null) 'autoCancel': autoCancel,
-          if (targetScreen != null) 'targetScreen': targetScreen,
-          if (extraData != null) 'extraData': extraData,
+          'autoCancel': ?autoCancel,
+          'targetScreen': ?targetScreen,
+          'extraData': ?extraData,
         });
     return result ?? -1;
   }
@@ -123,11 +123,11 @@ class MethodChannelNotificationMaster extends NotificationMasterPlatform {
           'title': title,
           'message': message,
           'actions': actions,
-          if (channelId != null) 'channelId': channelId,
+          'channelId': ?channelId,
           if (importance != null) 'priority': importance.value,
-          if (autoCancel != null) 'autoCancel': autoCancel,
-          if (targetScreen != null) 'targetScreen': targetScreen,
-          if (extraData != null) 'extraData': extraData,
+          'autoCancel': ?autoCancel,
+          'targetScreen': ?targetScreen,
+          'extraData': ?extraData,
         });
     return result ?? -1;
   }
@@ -147,13 +147,12 @@ class MethodChannelNotificationMaster extends NotificationMasterPlatform {
         .invokeMethod<bool>('createCustomChannel', {
           'channelId': channelId,
           'channelName': channelName,
-          if (channelDescription != null)
-            'channelDescription': channelDescription,
-          if (importance != null) 'importance': importance,
-          if (enableLights != null) 'enableLights': enableLights,
-          if (lightColor != null) 'lightColor': lightColor,
-          if (enableVibration != null) 'enableVibration': enableVibration,
-          if (enableSound != null) 'enableSound': enableSound,
+          'channelDescription': ?channelDescription,
+          'importance': ?importance,
+          'enableLights': ?enableLights,
+          'lightColor': ?lightColor,
+          'enableVibration': ?enableVibration,
+          'enableSound': ?enableSound,
         });
     return result ?? false;
   }
@@ -163,11 +162,10 @@ class MethodChannelNotificationMaster extends NotificationMasterPlatform {
     required String pollingUrl,
     int? intervalMinutes,
   }) async {
-    final result = await methodChannel
-        .invokeMethod<bool>('startNotificationPolling', {
-          'pollingUrl': pollingUrl,
-          if (intervalMinutes != null) 'intervalMinutes': intervalMinutes,
-        });
+    final result = await methodChannel.invokeMethod<bool>(
+      'startNotificationPolling',
+      {'pollingUrl': pollingUrl, 'intervalMinutes': ?intervalMinutes},
+    );
     return result ?? false;
   }
 
@@ -188,8 +186,8 @@ class MethodChannelNotificationMaster extends NotificationMasterPlatform {
     final result = await methodChannel
         .invokeMethod<bool>('startForegroundService', {
           'pollingUrl': pollingUrl,
-          if (intervalMinutes != null) 'intervalMinutes': intervalMinutes,
-          if (channelId != null) 'channelId': channelId,
+          'intervalMinutes': ?intervalMinutes,
+          'channelId': ?channelId,
         });
     return result ?? false;
   }
