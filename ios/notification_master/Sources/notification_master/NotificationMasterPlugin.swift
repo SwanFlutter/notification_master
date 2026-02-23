@@ -187,7 +187,7 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin {
   private func stopNotificationPolling(result: @escaping FlutterResult) {
     UserDefaults.standard.removeObject(forKey: Self.prefsPollingUrl)
     UserDefaults.standard.set(0, forKey: Self.prefsActiveService)
-    BGTaskScheduler.shared.cancel(taskWithIdentifier: Self.pollingTaskId)
+    BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: Self.pollingTaskId)
     result(true)
   }
 
@@ -207,13 +207,13 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin {
 
   private func stopForegroundService(result: @escaping FlutterResult) {
     UserDefaults.standard.set(0, forKey: Self.prefsActiveService)
-    BGTaskScheduler.shared.cancel(taskWithIdentifier: Self.pollingTaskId)
+    BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: Self.pollingTaskId)
     result(true)
   }
 
   private func setFirebaseAsActiveService(result: @escaping FlutterResult) {
     UserDefaults.standard.set(3, forKey: Self.prefsActiveService)
-    BGTaskScheduler.shared.cancel(taskWithIdentifier: Self.pollingTaskId)
+    BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: Self.pollingTaskId)
     result(true)
   }
 

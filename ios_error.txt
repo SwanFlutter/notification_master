@@ -1,0 +1,18 @@
+Running pod install...                                           1,027ms
+Running Xcode build...                                                  
+Xcode build done.                                           32.5s
+Failed to build iOS app
+Swift Compiler Error (Xcode): Incorrect argument label in call (have 'taskWithIdentifier:', expected 'taskRequestWithIdentifier:')
+/Users/vahid/dev/workspace/flutter/notification_master/ios/notification_master/Sources/notification_master/NotificationMasterPlugin.swift:189:33
+
+
+Swift Compiler Error (Xcode): Incorrect argument label in call (have 'taskWithIdentifier:', expected 'taskRequestWithIdentifier:')
+/Users/vahid/dev/workspace/flutter/notification_master/ios/notification_master/Sources/notification_master/NotificationMasterPlugin.swift:209:33
+
+
+Swift Compiler Error (Xcode): Incorrect argument label in call (have 'taskWithIdentifier:', expected 'taskRequestWithIdentifier:')
+/Users/vahid/dev/workspace/flutter/notification_master/ios/notification_master/Sources/notification_master/NotificationMasterPlugin.swift:215:33
+
+
+Could not build the application for the simulator.
+Error launching application on iPhone 17.

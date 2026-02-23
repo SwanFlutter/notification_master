@@ -187,7 +187,9 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin {
   private func stopNotificationPolling(result: @escaping FlutterResult) {
     UserDefaults.standard.removeObject(forKey: Self.prefsPollingUrl)
     UserDefaults.standard.set(0, forKey: Self.prefsActiveService)
-    BGTaskScheduler.shared.cancel(taskWithIdentifier: Self.pollingTaskId)
+    #if os(iOS)
+    BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: Self.pollingTaskId)
+    #endif
     result(true)
   }
 
@@ -207,13 +209,17 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin {
 
   private func stopForegroundService(result: @escaping FlutterResult) {
     UserDefaults.standard.set(0, forKey: Self.prefsActiveService)
-    BGTaskScheduler.shared.cancel(taskWithIdentifier: Self.pollingTaskId)
+    #if os(iOS)
+    BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: Self.pollingTaskId)
+    #endif
     result(true)
   }
 
   private func setFirebaseAsActiveService(result: @escaping FlutterResult) {
     UserDefaults.standard.set(3, forKey: Self.prefsActiveService)
-    BGTaskScheduler.shared.cancel(taskWithIdentifier: Self.pollingTaskId)
+    #if os(iOS)
+    BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: Self.pollingTaskId)
+    #endif
     result(true)
   }
 
@@ -230,11 +236,13 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin {
   }
 
   private func scheduleBackgroundPolling(intervalMinutes: Int) {
+    #if os(iOS)
     let request = BGAppRefreshTaskRequest(identifier: Self.pollingTaskId)
     request.earliestBeginDate = Date(timeIntervalSinceNow: Double(intervalMinutes * 60))
     do {
       try BGTaskScheduler.shared.submit(request)
     } catch {}
+    #endif
   }
 
   public static func registerBackgroundTask() {

@@ -6,15 +6,39 @@
 **Error:**
 ```
 error: 'BGAppRefreshTask' is unavailable in macOS
+error: 'BGTaskScheduler' is unavailable in macOS
 ```
 
 **Fix:**
 Added `#if os(iOS)` compiler directives to wrap iOS-specific background task code in `NotificationMasterPlugin.swift`. Background task scheduling is now only compiled for iOS, not macOS.
 
+**Changes:**
+- Wrapped `registerBackgroundTask()` with `#if os(iOS)`
+- Wrapped `handleBackgroundPolling()` with `#if os(iOS)`
+- Wrapped `scheduleNextPolling()` with `#if os(iOS)`
+- Wrapped `scheduleBackgroundPolling()` with `#if os(iOS)`
+- Wrapped all `BGTaskScheduler.shared.cancel()` calls with `#if os(iOS)`
+
 **Files Changed:**
 - `macos/notification_master/Sources/notification_master/NotificationMasterPlugin.swift`
 
-### 2. iOS Build Error: Minimum deployment target
+### 2. iOS/macOS Build Error: Incorrect argument label
+**Error:**
+```
+error: Incorrect argument label in call (have 'taskWithIdentifier:', expected 'taskRequestWithIdentifier:')
+BGTaskScheduler.shared.cancel(taskWithIdentifier: Self.pollingTaskId)
+                             ^~~~~~~~~~~~~~~~~~~
+                              taskRequestWithIdentifier
+```
+
+**Fix:**
+Changed all occurrences of `taskWithIdentifier:` to `taskRequestWithIdentifier:` in BGTaskScheduler.cancel() calls.
+
+**Files Changed:**
+- `macos/notification_master/Sources/notification_master/NotificationMasterPlugin.swift`
+- `ios/notification_master/Sources/notification_master/NotificationMasterPlugin.swift`
+
+### 3. iOS Build Error: Minimum deployment target
 **Error:**
 ```
 The plugin "workmanager_apple" requires a higher minimum iOS deployment version than your application is targeting.
@@ -53,6 +77,17 @@ pod install
 cd ..
 flutter run -d ios
 ```
+
+## Summary of Changes
+
+### macOS Plugin (`macos/notification_master/Sources/notification_master/NotificationMasterPlugin.swift`)
+- ✅ All BGTaskScheduler code wrapped with `#if os(iOS)`
+- ✅ Changed `taskWithIdentifier:` to `taskRequestWithIdentifier:`
+- ✅ Background polling disabled on macOS (iOS only feature)
+
+### iOS Plugin (`ios/notification_master/Sources/notification_master/NotificationMasterPlugin.swift`)
+- ✅ Changed `taskWithIdentifier:` to `taskRequestWithIdentifier:`
+- ✅ Deployment target updated to iOS 14.0
 
 ## Notes
 
