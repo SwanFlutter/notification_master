@@ -55,6 +55,13 @@ flutter pub get
 ![Screenshot 2026-02-22 105300](https://github.com/user-attachments/assets/ae9ca66b-a36b-4662-b941-00b611098e35)
 
 
+- Mac
+
+<img width="371" height="169" alt="Screenshot 2026-02-23 at 21 04 30" src="https://github.com/user-attachments/assets/42f95540-e157-43c4-8b1c-76ff2a2573b3" />
+<img width="376" height="154" alt="Screenshot 2026-02-23 at 21 04 57" src="https://github.com/user-attachments/assets/1a11b43b-160f-4ed6-9552-f18f6d1a690b" />
+<img width="382" height="196" alt="Screenshot 2026-02-23 at 21 05 30" src="https://github.com/user-attachments/assets/9479869d-1740-4f41-a5ab-70890c3f40ce" />
+
+
 ## Platform Setup
 
 ### 🤖 Android
