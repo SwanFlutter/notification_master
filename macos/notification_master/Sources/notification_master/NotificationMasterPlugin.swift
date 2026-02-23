@@ -238,11 +238,14 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin {
   }
 
   public static func registerBackgroundTask() {
+    #if os(iOS)
     BGTaskScheduler.shared.register(forTaskWithIdentifier: pollingTaskId, using: nil) { task in
       Self.handleBackgroundPolling(task: task as! BGAppRefreshTask)
     }
+    #endif
   }
 
+  #if os(iOS)
   private static func handleBackgroundPolling(task: BGAppRefreshTask) {
     scheduleNextPolling()
     guard let urlString = UserDefaults.standard.string(forKey: prefsPollingUrl),
@@ -270,8 +273,10 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin {
       }
     }.resume()
   }
+  #endif
 
   private static func scheduleNextPolling() {
+    #if os(iOS)
     let urlString = UserDefaults.standard.string(forKey: prefsPollingUrl)
     let interval = UserDefaults.standard.integer(forKey: prefsPollingInterval)
     if urlString == nil || interval <= 0 { return }
@@ -279,5 +284,6 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin {
     let request = BGAppRefreshTaskRequest(identifier: pollingTaskId)
     request.earliestBeginDate = Date(timeIntervalSinceNow: Double(mins * 60))
     try? BGTaskScheduler.shared.submit(request)
+    #endif
   }
 }

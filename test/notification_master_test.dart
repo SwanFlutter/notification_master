@@ -12,7 +12,6 @@ class MockNotificationMasterPlatform
 
   @override
   Future<bool> checkNotificationPermission() {
-    // TODO: implement checkNotificationPermission
     throw UnimplementedError();
   }
 
@@ -26,25 +25,21 @@ class MockNotificationMasterPlatform
       int? lightColor,
       bool? enableVibration,
       bool? enableSound}) {
-    // TODO: implement createCustomChannel
     throw UnimplementedError();
   }
 
   @override
   Future<String> getActiveNotificationService() {
-    // TODO: implement getActiveNotificationService
     throw UnimplementedError();
   }
 
   @override
   Future<bool> requestNotificationPermission() {
-    // TODO: implement requestNotificationPermission
     throw UnimplementedError();
   }
 
   @override
   Future<bool> setFirebaseAsActiveService() {
-    // TODO: implement setFirebaseAsActiveService
     throw UnimplementedError();
   }
 
@@ -58,7 +53,6 @@ class MockNotificationMasterPlatform
       bool? autoCancel,
       String? targetScreen,
       Map<String, dynamic>? extraData}) {
-    // TODO: implement showBigTextNotification
     throw UnimplementedError();
   }
 
@@ -72,7 +66,6 @@ class MockNotificationMasterPlatform
       bool? autoCancel,
       String? targetScreen,
       Map<String, dynamic>? extraData}) {
-    // TODO: implement showImageNotification
     throw UnimplementedError();
   }
 
@@ -86,7 +79,6 @@ class MockNotificationMasterPlatform
       bool? autoCancel,
       String? targetScreen,
       Map<String, dynamic>? extraData}) {
-    // TODO: implement showNotification
     throw UnimplementedError();
   }
 
@@ -100,33 +92,28 @@ class MockNotificationMasterPlatform
       bool? autoCancel,
       String? targetScreen,
       Map<String, dynamic>? extraData}) {
-    // TODO: implement showNotificationWithActions
     throw UnimplementedError();
   }
 
   @override
   Future<bool> startForegroundService(
       {required String pollingUrl, int? intervalMinutes, String? channelId}) {
-    // TODO: implement startForegroundService
     throw UnimplementedError();
   }
 
   @override
   Future<bool> startNotificationPolling(
       {required String pollingUrl, int? intervalMinutes}) {
-    // TODO: implement startNotificationPolling
     throw UnimplementedError();
   }
 
   @override
   Future<bool> stopForegroundService() {
-    // TODO: implement stopForegroundService
     throw UnimplementedError();
   }
 
   @override
   Future<bool> stopNotificationPolling() {
-    // TODO: implement stopNotificationPolling
     throw UnimplementedError();
   }
 
@@ -136,7 +123,6 @@ class MockNotificationMasterPlatform
       required String message,
       String? targetScreen,
       Map<String, dynamic>? extraData}) {
-    // TODO: implement showFullScreenNotification
     throw UnimplementedError();
   }
 
@@ -146,7 +132,6 @@ class MockNotificationMasterPlatform
       required String message,
       String? targetScreen,
       Map<String, dynamic>? extraData}) {
-    // TODO: implement showHeadsUpNotification
     throw UnimplementedError();
   }
 
@@ -157,7 +142,6 @@ class MockNotificationMasterPlatform
       String? channelId,
       String? targetScreen,
       Map<String, dynamic>? extraData}) {
-    // TODO: implement showStyledNotification
     throw UnimplementedError();
   }
 }
