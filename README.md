@@ -734,7 +734,7 @@ class _HomePageState extends State<HomePage> {
 - **Channels**: Only supported on Android 8.0+; ignored on other platforms.
 - **App Icon**: Use `showStyledNotification()` to display the app icon in notifications. ⭐
 - **Sound**: Custom channels now properly support sound with `enableSound: true`. ✅
-- **iOS**: Supports iOS 12.0 through iOS 26+ (maximum compatibility). 📱
+- **iOS**: Requires iOS 14.0+ (due to workmanager_apple dependency). Supports iOS 14 through iOS 26+. 📱
 
 ---
 
@@ -758,7 +758,7 @@ class _HomePageState extends State<HomePage> {
 
 ### 🔧 Build Fixes:
 - macOS: Fixed BGTaskScheduler compilation errors
-- iOS: Set to iOS 12.0 deployment target (iOS 12 - iOS 26+ support)
+- iOS: Set to iOS 14.0 deployment target (required by workmanager_apple, supports iOS 14-26+)
 - See `BUILD_FIXES.md` for details
 
 ---
