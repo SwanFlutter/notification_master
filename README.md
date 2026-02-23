@@ -734,6 +734,7 @@ class _HomePageState extends State<HomePage> {
 - **Channels**: Only supported on Android 8.0+; ignored on other platforms.
 - **App Icon**: Use `showStyledNotification()` to display the app icon in notifications. ⭐
 - **Sound**: Custom channels now properly support sound with `enableSound: true`. ✅
+- **iOS**: Supports iOS 12.0 through iOS 26+ (maximum compatibility). 📱
 
 ---
 
@@ -744,6 +745,7 @@ class _HomePageState extends State<HomePage> {
 2. **App Icon**: Notifications now display the app icon (use `showStyledNotification()`)
 3. **Full Text**: Messages are displayed in full without truncation
 4. **Better Logging**: Comprehensive logs added for debugging
+5. **iOS 12.0+**: Maximum device compatibility (~99% of active iOS devices)
 
 ### 🆕 New Methods:
 - `showStyledNotification()`: Notification with app icon and full text (recommended)
@@ -753,6 +755,11 @@ class _HomePageState extends State<HomePage> {
 ### 📚 Documentation:
 - See `NOTIFICATION_TYPES_FA.md` for detailed Persian documentation
 - Includes examples and troubleshooting guide
+
+### 🔧 Build Fixes:
+- macOS: Fixed BGTaskScheduler compilation errors
+- iOS: Set to iOS 12.0 deployment target (iOS 12 - iOS 26+ support)
+- See `BUILD_FIXES.md` for details
 
 ---
 

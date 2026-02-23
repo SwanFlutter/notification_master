@@ -16,7 +16,7 @@ A new Flutter project.
   s.source_files = 'notification_master/Sources/notification_master/**/*.swift'
   s.resource_bundles = {'notification_master_privacy' => ['notification_master/Sources/notification_master/PrivacyInfo.xcprivacy']}
   s.dependency 'Flutter'
-  s.platform = :ios, '14.0'
+  s.platform = :ios, '12.0'
 
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES', 'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386' }
   s.swift_version = '5.0'
