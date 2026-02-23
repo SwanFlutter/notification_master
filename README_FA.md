@@ -76,25 +76,51 @@ flutter pub get
 </array>
 ```
 
-سپس در `AppDelegate.swift`:
+سپس در `example/ios/Runner/AppDelegate.swift`:
 
 ```swift
-import UIKit
 import Flutter
+import UIKit
+import notification_master
 import UserNotifications
 
-@UIApplicationMain
-@objc class AppDelegate: FlutterAppDelegate {
+@main
+@objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate, UNUserNotificationCenterDelegate {
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
+    // تنظیم delegate برای نمایش نوتیفیکیشن در حالت foreground
     UNUserNotificationCenter.current().delegate = self
-    GeneratedPluginRegistrant.register(with: self)
+    
+    NotificationMasterPlugin.registerBackgroundTask()
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
+    GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+  }
+  
+  // نمایش نوتیفیکیشن در حالت foreground
+  func userNotificationCenter(_ center: UNUserNotificationCenter,
+                             willPresent notification: UNNotification,
+                             withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+    completionHandler([.banner, .sound, .badge])
+  }
+  
+  // مدیریت کلیک روی نوتیفیکیشن
+  func userNotificationCenter(_ center: UNUserNotificationCenter,
+                             didReceive response: UNNotificationResponse,
+                             withCompletionHandler completionHandler: @escaping () -> Void) {
+    completionHandler()
   }
 }
 ```
+
+**نکات مهم:**
+- `UNUserNotificationCenterDelegate` برای نمایش نوتیفیکیشن در حالت foreground ضروری است
+- متد `willPresent` اجازه می‌دهد نوتیفیکیشن‌ها هنگام باز بودن اپ نمایش داده شوند
+- متد `didReceive` برای مدیریت کلیک روی نوتیفیکیشن استفاده می‌شود
 
 ---
 

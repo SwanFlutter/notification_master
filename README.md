@@ -101,25 +101,51 @@ Add to `ios/Runner/Info.plist`:
 </array>
 ```
 
-In `AppDelegate.swift`:
+In `example/ios/Runner/AppDelegate.swift`:
 
 ```swift
-import UIKit
 import Flutter
+import UIKit
+import notification_master
 import UserNotifications
 
-@UIApplicationMain
-@objc class AppDelegate: FlutterAppDelegate {
+@main
+@objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate, UNUserNotificationCenterDelegate {
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
+    // Set delegate to show notifications while app is in foreground
     UNUserNotificationCenter.current().delegate = self
-    GeneratedPluginRegistrant.register(with: self)
+    
+    NotificationMasterPlugin.registerBackgroundTask()
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
+    GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+  }
+  
+  // Show notifications while app is in foreground
+  func userNotificationCenter(_ center: UNUserNotificationCenter,
+                             willPresent notification: UNNotification,
+                             withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+    completionHandler([.banner, .sound, .badge])
+  }
+  
+  // Handle notification tap
+  func userNotificationCenter(_ center: UNUserNotificationCenter,
+                             didReceive response: UNNotificationResponse,
+                             withCompletionHandler completionHandler: @escaping () -> Void) {
+    completionHandler()
   }
 }
 ```
+
+**Important Notes:**
+- `UNUserNotificationCenterDelegate` is required to show notifications while app is in foreground
+- The `willPresent` method allows notifications to be displayed when the app is open
+- The `didReceive` method handles notification tap events
 
 ---
 

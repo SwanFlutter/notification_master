@@ -33,6 +33,12 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin {
       showImageNotification(call: call, result: result)
     case "showNotificationWithActions":
       showNotificationWithActions(call: call, result: result)
+    case "showStyledNotification":
+      showStyledNotification(call: call, result: result)
+    case "showHeadsUpNotification":
+      showHeadsUpNotification(call: call, result: result)
+    case "showFullScreenNotification":
+      showFullScreenNotification(call: call, result: result)
     case "createCustomChannel":
       result(true)
     case "startNotificationPolling":
@@ -161,6 +167,74 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin {
       let category = UNNotificationCategory(identifier: "notification_master_actions", actions: unActions, intentIdentifiers: [], options: [])
       UNUserNotificationCenter.current().setNotificationCategories([category])
     }
+    let request = UNNotificationRequest(identifier: "\(id)", content: content, trigger: nil)
+    UNUserNotificationCenter.current().add(request) { err in
+      DispatchQueue.main.async {
+        if err != nil { result(-1); return }
+        result(id)
+      }
+    }
+  }
+
+  private func showStyledNotification(call: FlutterMethodCall, result: @escaping FlutterResult) {
+    guard let args = call.arguments as? [String: Any],
+          let title = args["title"] as? String,
+          let message = args["message"] as? String else {
+      result(FlutterError(code: "INVALID_ARGS", message: "title and message required", details: nil))
+      return
+    }
+    let id = args["id"] as? Int ?? Int.random(in: 1..<Int.max)
+    let content = UNMutableNotificationContent()
+    content.title = title
+    content.body = message
+    content.sound = .default
+    content.badge = 1
+    let request = UNNotificationRequest(identifier: "\(id)", content: content, trigger: nil)
+    UNUserNotificationCenter.current().add(request) { err in
+      DispatchQueue.main.async {
+        if err != nil { result(-1); return }
+        result(id)
+      }
+    }
+  }
+
+  private func showHeadsUpNotification(call: FlutterMethodCall, result: @escaping FlutterResult) {
+    guard let args = call.arguments as? [String: Any],
+          let title = args["title"] as? String,
+          let message = args["message"] as? String else {
+      result(FlutterError(code: "INVALID_ARGS", message: "title and message required", details: nil))
+      return
+    }
+    let id = args["id"] as? Int ?? Int.random(in: 1..<Int.max)
+    let content = UNMutableNotificationContent()
+    content.title = title
+    content.body = message
+    content.sound = .default
+    content.badge = 1
+    content.interruptionLevel = .timeSensitive
+    let request = UNNotificationRequest(identifier: "\(id)", content: content, trigger: nil)
+    UNUserNotificationCenter.current().add(request) { err in
+      DispatchQueue.main.async {
+        if err != nil { result(-1); return }
+        result(id)
+      }
+    }
+  }
+
+  private func showFullScreenNotification(call: FlutterMethodCall, result: @escaping FlutterResult) {
+    guard let args = call.arguments as? [String: Any],
+          let title = args["title"] as? String,
+          let message = args["message"] as? String else {
+      result(FlutterError(code: "INVALID_ARGS", message: "title and message required", details: nil))
+      return
+    }
+    let id = args["id"] as? Int ?? Int.random(in: 1..<Int.max)
+    let content = UNMutableNotificationContent()
+    content.title = title
+    content.body = message
+    content.sound = .default
+    content.badge = 1
+    content.interruptionLevel = .critical
     let request = UNNotificationRequest(identifier: "\(id)", content: content, trigger: nil)
     UNUserNotificationCenter.current().add(request) { err in
       DispatchQueue.main.async {
