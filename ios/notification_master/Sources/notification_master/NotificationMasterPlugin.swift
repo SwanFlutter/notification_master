@@ -121,7 +121,7 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin {
     guard let args = call.arguments as? [String: Any],
           let title = args["title"] as? String,
           let message = args["message"] as? String else {
-      result(FlutterError(code: "INVALID_ARGS", message: "title and message required", details: nil))
+      result(FlurError(code: "INVALID_ARGS", message: "title and message required", details: nil))
       return
     }
     let id = Int.random(in: 1..<Int.max)
@@ -198,6 +198,7 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin {
     }
   }
 
+  // MARK: - Fixed: interruptionLevel guarded with @available(iOS 15, *)
   private func showHeadsUpNotification(call: FlutterMethodCall, result: @escaping FlutterResult) {
     guard let args = call.arguments as? [String: Any],
           let title = args["title"] as? String,
@@ -211,7 +212,10 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin {
     content.body = message
     content.sound = .default
     content.badge = 1
-    content.interruptionLevel = .timeSensitive
+    // interruptionLevel is iOS 15+; on older versions the notification still shows normally
+    if #available(iOS 15.0, *) {
+      content.interruptionLevel = .timeSensitive
+    }
     let request = UNNotificationRequest(identifier: "\(id)", content: content, trigger: nil)
     UNUserNotificationCenter.current().add(request) { err in
       DispatchQueue.main.async {
@@ -221,6 +225,7 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin {
     }
   }
 
+  // MARK: - Fixed: interruptionLevel guarded with @available(iOS 15, *)
   private func showFullScreenNotification(call: FlutterMethodCall, result: @escaping FlutterResult) {
     guard let args = call.arguments as? [String: Any],
           let title = args["title"] as? String,
@@ -234,7 +239,10 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin {
     content.body = message
     content.sound = .default
     content.badge = 1
-    content.interruptionLevel = .critical
+    // interruptionLevel is iOS 15+; on older versions falls back to default behaviour
+    if #available(iOS 15.0, *) {
+      content.interruptionLevel = .critical
+    }
     let request = UNNotificationRequest(identifier: "\(id)", content: content, trigger: nil)
     UNUserNotificationCenter.current().add(request) { err in
       DispatchQueue.main.async {
@@ -261,7 +269,9 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin {
   private func stopNotificationPolling(result: @escaping FlutterResult) {
     UserDefaults.standard.removeObject(forKey: Self.prefsPollingUrl)
     UserDefaults.standard.set(0, forKey: Self.prefsActiveService)
-    BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: Self.pollingTaskId)
+    if #available(iOS 13.0, *) {
+      BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: Self.pollingTaskId)
+    }
     result(true)
   }
 
@@ -281,13 +291,17 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin {
 
   private func stopForegroundService(result: @escaping FlutterResult) {
     UserDefaults.standard.set(0, forKey: Self.prefsActiveService)
-    BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: Self.pollingTaskId)
+    if #available(iOS 13.0, *) {
+      BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: Self.pollingTaskId)
+    }
     result(true)
   }
 
   private func setFirebaseAsActiveService(result: @escaping FlutterResult) {
     UserDefaults.standard.set(3, forKey: Self.prefsActiveService)
-    BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: Self.pollingTaskId)
+    if #available(iOS 13.0, *) {
+      BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: Self.pollingTaskId)
+    }
     result(true)
   }
 
@@ -304,6 +318,7 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin {
   }
 
   private func scheduleBackgroundPolling(intervalMinutes: Int) {
+    guard #available(iOS 13.0, *) else { return }
     let request = BGAppRefreshTaskRequest(identifier: Self.pollingTaskId)
     request.earliestBeginDate = Date(timeIntervalSinceNow: Double(intervalMinutes * 60))
     do {
@@ -314,11 +329,13 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin {
   }
 
   public static func registerBackgroundTask() {
+    guard #available(iOS 13.0, *) else { return }
     BGTaskScheduler.shared.register(forTaskWithIdentifier: pollingTaskId, using: nil) { task in
       Self.handleBackgroundPolling(task: task as! BGAppRefreshTask)
     }
   }
 
+  @available(iOS 13.0, *)
   private static func handleBackgroundPolling(task: BGAppRefreshTask) {
     scheduleNextPolling()
     guard let urlString = UserDefaults.standard.string(forKey: prefsPollingUrl),
@@ -326,7 +343,6 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin {
       task.setTaskCompleted(success: true)
       return
     }
-    let taskId = pollingTaskId
     task.expirationHandler = {
       task.setTaskCompleted(success: false)
     }
@@ -344,12 +360,17 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin {
         content.title = title
         content.body = bigText.isEmpty ? message : bigText
         content.sound = .default
-        let req = UNNotificationRequest(identifier: "bg_\(i)_\(Date().timeIntervalSince1970)", content: content, trigger: nil)
+        let req = UNNotificationRequest(
+          identifier: "bg_\(i)_\(Date().timeIntervalSince1970)",
+          content: content,
+          trigger: nil
+        )
         center.add(req, withCompletionHandler: nil)
       }
     }.resume()
   }
 
+  @available(iOS 13.0, *)
   private static func scheduleNextPolling() {
     let urlString = UserDefaults.standard.string(forKey: prefsPollingUrl)
     let interval = UserDefaults.standard.integer(forKey: prefsPollingInterval)
