@@ -154,6 +154,10 @@ import UserNotifications
 - The `willPresent` method allows notifications to be displayed when the app is open
 - The `didReceive` method handles notification tap events
 
+**📖 For complete iOS setup guide including Podfile configuration, see:**
+- English: [IOS_SETUP.md](IOS_SETUP.md)
+- فارسی: [IOS_SETUP_FA.md](IOS_SETUP_FA.md)
+
 ---
 
 ### 🌐 Web
