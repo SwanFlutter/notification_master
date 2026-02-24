@@ -126,6 +126,11 @@ import UserNotifications
 - فارسی: [IOS_SETUP_FA.md](IOS_SETUP_FA.md)
 - English: [IOS_SETUP.md](IOS_SETUP.md)
 
+**⚠️ مشکل رایج - خطای Deployment Target:**
+اگر خطای CocoaPods مربوط به deployment target دریافت کردید:
+- فارسی: [IOS_DEPLOYMENT_TARGET_FIX_FA.md](IOS_DEPLOYMENT_TARGET_FIX_FA.md)
+- English: [IOS_DEPLOYMENT_TARGET_FIX.md](IOS_DEPLOYMENT_TARGET_FIX.md)
+
 ---
 
 ### 🌐 Web

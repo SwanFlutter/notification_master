@@ -158,6 +158,11 @@ import UserNotifications
 - English: [IOS_SETUP.md](IOS_SETUP.md)
 - فارسی: [IOS_SETUP_FA.md](IOS_SETUP_FA.md)
 
+**⚠️ Common Issue - Deployment Target Error:**
+If you get a CocoaPods error about deployment target, see:
+- English: [IOS_DEPLOYMENT_TARGET_FIX.md](IOS_DEPLOYMENT_TARGET_FIX.md)
+- فارسی: [IOS_DEPLOYMENT_TARGET_FIX_FA.md](IOS_DEPLOYMENT_TARGET_FIX_FA.md)
+
 ---
 
 ### 🌐 Web
