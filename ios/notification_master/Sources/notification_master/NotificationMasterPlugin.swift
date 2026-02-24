@@ -121,7 +121,7 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin {
     guard let args = call.arguments as? [String: Any],
           let title = args["title"] as? String,
           let message = args["message"] as? String else {
-      result(FlurError(code: "INVALID_ARGS", message: "title and message required", details: nil))
+      result(FlutterError(code: "INVALID_ARGS", message: "title and message required", details: nil))
       return
     }
     let id = Int.random(in: 1..<Int.max)

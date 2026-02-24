@@ -1,84 +1,32 @@
-pod install
+ pod install
 Analyzing dependencies
-[!] CocoaPods could not find compatible versions for pod "Flutter":
-  In Podfile:
-    Flutter (from `Flutter`)
+Downloading dependencies
+Installing Flutter (1.0.0)
+Installing integration_test (0.0.1)
+Installing notification_master (0.0.1)
+Installing workmanager_apple (0.0.1)
+Generating Pods project
+Integrating client project
+Pod installation complete! There are 4 dependencies from the Podfile and 4 total pods installed.
 
-Specs satisfying the `Flutter (from `Flutter`)` dependency were found, but they required a higher minimum deployment target.
-vahid@Vahids-Mac-mini ios % rm -rf Pods Podfile.lock
-vahid@Vahids-Mac-mini ios % pod install             
-Analyzing dependencies
-[!] CocoaPods could not find compatible versions for pod "Flutter":
-  In Podfile:
-    Flutter (from `Flutter`)
-
-Specs satisfying the `Flutter (from `Flutter`)` dependency were found, but they required a higher minimum deployment target.
+[!] CocoaPods did not set the base configuration of your project because your project already has a custom config set. In order for CocoaPods integration to work at all, please either set the base configurations of the target `Runner` to `Target Support Files/Pods-Runner/Pods-Runner.profile.xcconfig` or include the `Target Support Files/Pods-Runner/Pods-Runner.profile.xcconfig` in your build configuration (`Flutter/Release.xcconfig`).
 vahid@Vahids-Mac-mini ios % cd ..
 vahid@Vahids-Mac-mini example % flutter run
 Launching lib/main.dart on iPhone 17 in debug mode...
-Updating minimum iOS deployment target to 13.0.
-Upgrading Podfile
 Warning: Missing build name (CFBundleShortVersionString).
 Warning: Missing build number (CFBundleVersion).
 Action Required: You must set a build name and number in the pubspec.yaml file version field before submitting to the App Store.
-Running pod install...                                             444ms
-CocoaPods' output:
-↳
-      Preparing
+Running pod install...                                             624ms
+Running Xcode build...                                                  
+Xcode build done.                                           12.3s
+Failed to build iOS app
+Swift Compiler Error (Xcode): Cannot find 'FlurError' in scope
+/Users/vahid/dev/workspace/flutter/notification_master/ios/notification_master/Sources/notification_master/NotificationMasterPlugin.swift:123:13
 
-    Analyzing dependencies
 
-    Inspecting targets to integrate
-      Using `ARCHS` setting to build architectures of target `Pods-Runner`: (``)
-      Using `ARCHS` setting to build architectures of target `Pods-RunnerTests`: (``)
+Swift Compiler Error (Xcode): 'nil' requires a contextual type
+/Users/vahid/dev/workspace/flutter/notification_master/ios/notification_master/Sources/notification_master/NotificationMasterPlugin.swift:123:93
 
-    Fetching external sources
-    -> Fetching podspec for `Flutter` from `Flutter`
-    -> Fetching podspec for `integration_test` from `.symlinks/plugins/integration_test/ios`
-    -> Fetching podspec for `notification_master` from `.symlinks/plugins/notification_master/ios`
-    -> Fetching podspec for `workmanager_apple` from `.symlinks/plugins/workmanager_apple/ios`
 
-    Resolving dependencies of `Podfile`
-      CDN: trunk Relative path: CocoaPods-version.yml exists! Returning local because checking is only performed in repo update
-    [!] CocoaPods could not find compatible versions for pod "notification_master":
-      In Podfile:
-        notification_master (from `.symlinks/plugins/notification_master/ios`)
-
-    Specs satisfying the `notification_master (from `.symlinks/plugins/notification_master/ios`)` dependency were found, but they required a higher minimum
-    deployment target.
-
-    /opt/homebrew/Cellar/cocoapods/1.16.2_2/libexec/gems/molinillo-0.8.0/lib/molinillo/resolution.rb:317:in
-    'Molinillo::Resolver::Resolution#raise_error_unless_state'
-    /opt/homebrew/Cellar/cocoapods/1.16.2_2/libexec/gems/molinillo-0.8.0/lib/molinillo/resolution.rb:299:in 'block in
-    Molinillo::Resolver::Resolution#unwind_for_conflict'
-    /opt/homebrew/Cellar/cocoapods/1.16.2_2/libexec/gems/molinillo-0.8.0/lib/molinillo/resolution.rb:297:in 'Kernel#tap'
-    /opt/homebrew/Cellar/cocoapods/1.16.2_2/libexec/gems/molinillo-0.8.0/lib/molinillo/resolution.rb:297:in 'Molinillo::Resolver::Resolution#unwind_for_conflict'
-    /opt/homebrew/Cellar/cocoapods/1.16.2_2/libexec/gems/molinillo-0.8.0/lib/molinillo/resolution.rb:682:in 'Molinillo::Resolver::Resolution#attempt_to_activate'
-    /opt/homebrew/Cellar/cocoapods/1.16.2_2/libexec/gems/molinillo-0.8.0/lib/molinillo/resolution.rb:254:in
-    'Molinillo::Resolver::Resolution#process_topmost_state'
-    /opt/homebrew/Cellar/cocoapods/1.16.2_2/libexec/gems/molinillo-0.8.0/lib/molinillo/resolution.rb:182:in 'Molinillo::Resolver::Resolution#resolve'
-    /opt/homebrew/Cellar/cocoapods/1.16.2_2/libexec/gems/molinillo-0.8.0/lib/molinillo/resolver.rb:43:in 'Molinillo::Resolver#resolve'
-    /opt/homebrew/Cellar/cocoapods/1.16.2_2/libexec/gems/cocoapods-1.16.2/lib/cocoapods/resolver.rb:94:in 'Pod::Resolver#resolve'
-    /opt/homebrew/Cellar/cocoapods/1.16.2_2/libexec/gems/cocoapods-1.16.2/lib/cocoapods/installer/analyzer.rb:1082:in 'block in
-    Pod::Installer::Analyzer#resolve_dependencies'
-    /opt/homebrew/Cellar/cocoapods/1.16.2_2/libexec/gems/cocoapods-1.16.2/lib/cocoapods/user_interface.rb:64:in 'Pod::UserInterface.section'
-    /opt/homebrew/Cellar/cocoapods/1.16.2_2/libexec/gems/cocoapods-1.16.2/lib/cocoapods/installer/analyzer.rb:1080:in
-    'Pod::Installer::Analyzer#resolve_dependencies'
-    /opt/homebrew/Cellar/cocoapods/1.16.2_2/libexec/gems/cocoapods-1.16.2/lib/cocoapods/installer/analyzer.rb:125:in 'Pod::Installer::Analyzer#analyze'
-    /opt/homebrew/Cellar/cocoapods/1.16.2_2/libexec/gems/cocoapods-1.16.2/lib/cocoapods/installer.rb:422:in 'Pod::Installer#analyze'
-    /opt/homebrew/Cellar/cocoapods/1.16.2_2/libexec/gems/cocoapods-1.16.2/lib/cocoapods/installer.rb:244:in 'block in Pod::Installer#resolve_dependencies'
-    /opt/homebrew/Cellar/cocoapods/1.16.2_2/libexec/gems/cocoapods-1.16.2/lib/cocoapods/user_interface.rb:64:in 'Pod::UserInterface.section'
-    /opt/homebrew/Cellar/cocoapods/1.16.2_2/libexec/gems/cocoapods-1.16.2/lib/cocoapods/installer.rb:243:in 'Pod::Installer#resolve_dependencies'
-    /opt/homebrew/Cellar/cocoapods/1.16.2_2/libexec/gems/cocoapods-1.16.2/lib/cocoapods/installer.rb:162:in 'Pod::Installer#install!'
-    /opt/homebrew/Cellar/cocoapods/1.16.2_2/libexec/gems/cocoapods-1.16.2/lib/cocoapods/command/install.rb:52:in 'Pod::Command::Install#run'
-    /opt/homebrew/Cellar/cocoapods/1.16.2_2/libexec/gems/claide-1.1.0/lib/claide/command.rb:334:in 'CLAide::Command.run'
-    /opt/homebrew/Cellar/cocoapods/1.16.2_2/libexec/gems/cocoapods-1.16.2/lib/cocoapods/command.rb:52:in 'Pod::Command.run'
-    /opt/homebrew/Cellar/cocoapods/1.16.2_2/libexec/gems/cocoapods-1.16.2/bin/pod:55:in '<top (required)>'
-    /opt/homebrew/Cellar/ruby/4.0.1/lib/ruby/4.0.0/rubygems.rb:303:in 'Kernel#load'
-    /opt/homebrew/Cellar/ruby/4.0.1/lib/ruby/4.0.0/rubygems.rb:303:in 'Gem.activate_and_load_bin_path'
-    /opt/homebrew/Cellar/cocoapods/1.16.2_2/libexec/bin/pod:25:in '<main>'
-
-Error: The plugin "notification_master" requires a higher minimum iOS deployment version than your application is targeting.
-To build, increase your application's deployment target to at least 14.0 as described at https://flutter.dev/to/ios-deploy
-Error running pod install
+Could not build the application for the simulator.
 Error launching application on iPhone 17.
