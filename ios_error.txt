@@ -1,31 +1,29 @@
- pod install
-Analyzing dependencies
-Downloading dependencies
-Installing Flutter (1.0.0)
-Installing integration_test (0.0.1)
-Installing notification_master (0.0.1)
-Installing workmanager_apple (0.0.1)
-Generating Pods project
-Integrating client project
-Pod installation complete! There are 4 dependencies from the Podfile and 4 total pods installed.
-
-[!] CocoaPods did not set the base configuration of your project because your project already has a custom config set. In order for CocoaPods integration to work at all, please either set the base configurations of the target `Runner` to `Target Support Files/Pods-Runner/Pods-Runner.profile.xcconfig` or include the `Target Support Files/Pods-Runner/Pods-Runner.profile.xcconfig` in your build configuration (`Flutter/Release.xcconfig`).
-vahid@Vahids-Mac-mini ios % cd ..
-vahid@Vahids-Mac-mini example % flutter run
+flutter run
+Resolving dependencies... 
+Downloading packages... 
+  meta 1.17.0 (1.18.1 available)
+Got dependencies!
+1 package has newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
 Launching lib/main.dart on iPhone 17 in debug mode...
-Warning: Missing build name (CFBundleShortVersionString).
-Warning: Missing build number (CFBundleVersion).
-Action Required: You must set a build name and number in the pubspec.yaml file version field before submitting to the App Store.
-Running pod install...                                             624ms
+Running pod install...                                             605ms
 Running Xcode build...                                                  
-Xcode build done.                                           12.3s
+Xcode build done.                                           23.1s
 Failed to build iOS app
-Swift Compiler Error (Xcode): Cannot find 'FlurError' in scope
-/Users/vahid/dev/workspace/flutter/notification_master/ios/notification_master/Sources/notification_master/NotificationMasterPlugin.swift:123:13
+Swift Compiler Error (Xcode): Overriding declaration requires an 'override' keyword
+/Users/vahid/dev/workspace/flutter/notification_master/example/ios/Runner/AppDelegate.swift:23:7
 
 
-Swift Compiler Error (Xcode): 'nil' requires a contextual type
-/Users/vahid/dev/workspace/flutter/notification_master/ios/notification_master/Sources/notification_master/NotificationMasterPlugin.swift:123:93
+Swift Compiler Error (Xcode): Overriding declaration requires an 'override' keyword
+/Users/vahid/dev/workspace/flutter/notification_master/example/ios/Runner/AppDelegate.swift:30:7
+
+
+Swift Compiler Error (Xcode): Redundant conformance of 'AppDelegate' to protocol 'UNUserNotificationCenterDelegate'
+/Users/vahid/dev/workspace/flutter/notification_master/example/ios/Runner/AppDelegate.swift:6:76
+
+
+Swift Compiler Error (Xcode): Type 'NotificationMasterPlugin' has no member 'registerBackgroundTask'
+/Users/vahid/dev/workspace/flutter/notification_master/example/ios/Runner/AppDelegate.swift:14:29
 
 
 Could not build the application for the simulator.
