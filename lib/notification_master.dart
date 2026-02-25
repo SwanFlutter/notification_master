@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 
 import 'notification_master_platform_interface.dart';
 import 'src/notification_polling.dart';
@@ -11,6 +14,42 @@ export 'src/unified_notification_service.dart';
 
 /// The main plugin class for NotificationMaster.
 class NotificationMaster {
+  static final NotificationMaster _instance = NotificationMaster._internal();
+  factory NotificationMaster() => _instance;
+  NotificationMaster._internal() {
+    _setupMethodChannel();
+  }
+
+  final StreamController<Map<String, dynamic>> _notificationTapController =
+      StreamController<Map<String, dynamic>>.broadcast();
+
+  /// Stream of notification tap events.
+  /// Each event is a map containing 'targetScreen' and 'extraData' if available.
+  Stream<Map<String, dynamic>> get onNotificationTap =>
+      _notificationTapController.stream;
+
+  final StreamController<Map<String, dynamic>> _actionTapController =
+      StreamController<Map<String, dynamic>>.broadcast();
+
+  /// Stream of notification action tap events.
+  /// Each event is a map containing 'route', 'targetScreen', and 'extraData' if available.
+  Stream<Map<String, dynamic>> get onActionTap => _actionTapController.stream;
+
+  void _setupMethodChannel() {
+    const channel = MethodChannel('notification_master');
+    channel.setMethodCallHandler((call) async {
+      switch (call.method) {
+        case 'onNotificationTap':
+          _notificationTapController
+              .add(Map<String, dynamic>.from(call.arguments));
+          break;
+        case 'onActionTap':
+          _actionTapController.add(Map<String, dynamic>.from(call.arguments));
+          break;
+      }
+    });
+  }
+
   Future<String?> getPlatformVersion() {
     return NotificationMasterPlatform.instance.getPlatformVersion();
   }

@@ -8,6 +8,7 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin, UNUserNotificati
   private var pollingUrl: String?
   private var intervalMinutes: Int = 15
   private var isPollingActive = false
+  private var channel: FlutterMethodChannel?
 
   // Service types
   private enum NotificationServiceType: String {
@@ -25,6 +26,7 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin, UNUserNotificati
   public static func register(with registrar: FlutterPluginRegistrar) {
     let channel = FlutterMethodChannel(name: "notification_master", binaryMessenger: registrar.messenger())
     let instance = NotificationMasterPlugin()
+    instance.channel = channel
     registrar.addMethodCallDelegate(instance, channel: channel)
 
     // Register for background tasks (iOS 13+)
@@ -66,9 +68,11 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin, UNUserNotificati
       let priority = args["priority"] as? Int ?? 0
       let autoCancel = args["autoCancel"] as? Bool ?? true
       let id = args["id"] as? Int
+      let targetScreen = args["targetScreen"] as? String
+      let extraData = args["extraData"] as? [String: Any]
 
-      showNotification(title: title, message: message, channelId: channelId, priority: priority, autoCancel: autoCancel, id: id)
-      result(true)
+      let notificationId = showNotification(title: title, message: message, channelId: channelId, priority: priority, autoCancel: autoCancel, id: id, targetScreen: targetScreen, extraData: extraData)
+      result(notificationId)
 
     // Big text notifications
     case "showBigTextNotification":
@@ -83,9 +87,11 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin, UNUserNotificati
       let channelId = args["channelId"] as? String
       let priority = args["priority"] as? Int ?? 0
       let autoCancel = args["autoCancel"] as? Bool ?? true
+      let targetScreen = args["targetScreen"] as? String
+      let extraData = args["extraData"] as? [String: Any]
 
-      showBigTextNotification(title: title, message: message, bigText: bigText, channelId: channelId, priority: priority, autoCancel: autoCancel)
-      result(true)
+      let notificationId = showBigTextNotification(title: title, message: message, bigText: bigText, channelId: channelId, priority: priority, autoCancel: autoCancel, targetScreen: targetScreen, extraData: extraData)
+      result(notificationId)
 
     // Image notifications
     case "showImageNotification":
@@ -100,9 +106,11 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin, UNUserNotificati
       let channelId = args["channelId"] as? String
       let priority = args["priority"] as? Int ?? 0
       let autoCancel = args["autoCancel"] as? Bool ?? true
+      let targetScreen = args["targetScreen"] as? String
+      let extraData = args["extraData"] as? [String: Any]
 
-      showImageNotification(title: title, message: message, imageUrl: imageUrl, channelId: channelId, priority: priority, autoCancel: autoCancel)
-      result(true)
+      showImageNotification(title: title, message: message, imageUrl: imageUrl, channelId: channelId, priority: priority, autoCancel: autoCancel, targetScreen: targetScreen, extraData: extraData)
+      result(Int.random(in: 1...1000000))
 
     // Notifications with actions
     case "showNotificationWithActions":
@@ -117,9 +125,52 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin, UNUserNotificati
       let channelId = args["channelId"] as? String
       let priority = args["priority"] as? Int ?? 0
       let autoCancel = args["autoCancel"] as? Bool ?? true
+      let targetScreen = args["targetScreen"] as? String
+      let extraData = args["extraData"] as? [String: Any]
 
-      showNotificationWithActions(title: title, message: message, actions: actions, channelId: channelId, priority: priority, autoCancel: autoCancel)
-      result(true)
+      let notificationId = showNotificationWithActions(title: title, message: message, actions: actions, channelId: channelId, priority: priority, autoCancel: autoCancel, targetScreen: targetScreen, extraData: extraData)
+      result(notificationId)
+
+    // Specialized notifications (Heads-up, Full Screen, Styled)
+    case "showHeadsUpNotification":
+      guard let args = call.arguments as? [String: Any],
+            let title = args["title"] as? String,
+            let message = args["message"] as? String else {
+        result(FlutterError(code: "INVALID_ARGS", message: "Invalid arguments", details: nil))
+        return
+      }
+      let targetScreen = args["targetScreen"] as? String
+      let extraData = args["extraData"] as? [String: Any]
+      
+      let notificationId = showNotification(title: title, message: message, channelId: nil, priority: 2, autoCancel: true, id: nil, targetScreen: targetScreen, extraData: extraData)
+      result(notificationId)
+
+    case "showFullScreenNotification":
+      guard let args = call.arguments as? [String: Any],
+            let title = args["title"] as? String,
+            let message = args["message"] as? String else {
+        result(FlutterError(code: "INVALID_ARGS", message: "Invalid arguments", details: nil))
+        return
+      }
+      let targetScreen = args["targetScreen"] as? String
+      let extraData = args["extraData"] as? [String: Any]
+      
+      let notificationId = showNotification(title: title, message: message, channelId: nil, priority: 2, autoCancel: true, id: nil, targetScreen: targetScreen, extraData: extraData)
+      result(notificationId)
+
+    case "showStyledNotification":
+      guard let args = call.arguments as? [String: Any],
+            let title = args["title"] as? String,
+            let message = args["message"] as? String else {
+        result(FlutterError(code: "INVALID_ARGS", message: "Invalid arguments", details: nil))
+        return
+      }
+      let channelId = args["channelId"] as? String
+      let targetScreen = args["targetScreen"] as? String
+      let extraData = args["extraData"] as? [String: Any]
+      
+      let notificationId = showNotification(title: title, message: message, channelId: channelId, priority: 1, autoCancel: true, id: nil, targetScreen: targetScreen, extraData: extraData)
+      result(notificationId)
 
     // Notification channels
     case "createCustomChannel":
@@ -191,18 +242,29 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin, UNUserNotificati
 
   // MARK: - Notification Display
 
-  private func showNotification(title: String, message: String, channelId: String?, priority: Int, autoCancel: Bool, id: Int?) {
+  private func showNotification(title: String, message: String, channelId: String?, priority: Int, autoCancel: Bool, id: Int?, targetScreen: String?, extraData: [String: Any]?) -> Int {
     let content = UNMutableNotificationContent()
     content.title = title
     content.body = message
+    
+    // Add target screen and extra data to userInfo
+    var userInfo: [String: Any] = [:]
+    if let targetScreen = targetScreen {
+      userInfo["targetScreen"] = targetScreen
+    }
+    if let extraData = extraData {
+      userInfo["extraData"] = extraData
+    }
+    content.userInfo = userInfo
 
-    // Set sound based on priority
-    if priority > 0 {
+    // Set sound based on priority (0: min, 1: low, 2: default, 3: high, 4: max)
+    if priority >= 2 {
       content.sound = UNNotificationSound.default
     }
 
-    // Create identifier - use provided id or generate unique one
-    let identifier = id != nil ? String(id!) : UUID().uuidString
+    // Create identifier - use provided id or generate a numeric one for the return value
+    let notificationId = id ?? Int.random(in: 1...1000000)
+    let identifier = String(notificationId)
 
     // Create the request
     let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
@@ -213,21 +275,34 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin, UNUserNotificati
         print("Error showing notification: \(error)")
       }
     }
+    
+    return notificationId
   }
 
-  private func showBigTextNotification(title: String, message: String, bigText: String, channelId: String?, priority: Int, autoCancel: Bool) {
+  private func showBigTextNotification(title: String, message: String, bigText: String, channelId: String?, priority: Int, autoCancel: Bool, targetScreen: String?, extraData: [String: Any]?) -> Int {
     let content = UNMutableNotificationContent()
     content.title = title
     content.body = message
     content.subtitle = bigText
+    
+    // Add target screen and extra data to userInfo
+    var userInfo: [String: Any] = [:]
+    if let targetScreen = targetScreen {
+      userInfo["targetScreen"] = targetScreen
+    }
+    if let extraData = extraData {
+      userInfo["extraData"] = extraData
+    }
+    content.userInfo = userInfo
 
     // Set sound based on priority
-    if priority > 0 {
+    if priority >= 2 {
       content.sound = UNNotificationSound.default
     }
 
     // Create a unique identifier
-    let identifier = UUID().uuidString
+    let notificationId = Int.random(in: 1...1000000)
+    let identifier = String(notificationId)
 
     // Create the request
     let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
@@ -238,15 +313,27 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin, UNUserNotificati
         print("Error showing big text notification: \(error)")
       }
     }
+    
+    return notificationId
   }
 
-  private func showImageNotification(title: String, message: String, imageUrl: String, channelId: String?, priority: Int, autoCancel: Bool) {
+  private func showImageNotification(title: String, message: String, imageUrl: String, channelId: String?, priority: Int, autoCancel: Bool, targetScreen: String?, extraData: [String: Any]?) {
     let content = UNMutableNotificationContent()
     content.title = title
     content.body = message
+    
+    // Add target screen and extra data to userInfo
+    var userInfo: [String: Any] = [:]
+    if let targetScreen = targetScreen {
+      userInfo["targetScreen"] = targetScreen
+    }
+    if let extraData = extraData {
+      userInfo["extraData"] = extraData
+    }
+    content.userInfo = userInfo
 
     // Set sound based on priority
-    if priority > 0 {
+    if priority >= 2 {
       content.sound = UNNotificationSound.default
     }
 
@@ -271,51 +358,75 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin, UNUserNotificati
     }
   }
 
-  private func showNotificationWithActions(title: String, message: String, actions: [[String: String]], channelId: String?, priority: Int, autoCancel: Bool) {
-    // Set up notification actions
-    setupNotificationActions()
+  private func showNotificationWithActions(title: String, message: String, actions: [[String: String]], channelId: String?, priority: Int, autoCancel: Bool, targetScreen: String?, extraData: [String: Any]?) -> Int {
+    // Set up notification actions dynamically
+    let categoryIdentifier = "DYNAMIC_ACTION_CATEGORY_" + UUID().uuidString
+    setupDynamicNotificationActions(categoryIdentifier: categoryIdentifier, actions: actions)
 
     let content = UNMutableNotificationContent()
     content.title = title
     content.body = message
-    content.categoryIdentifier = "ACTION_CATEGORY"
+    content.categoryIdentifier = categoryIdentifier
+    
+    // Add target screen and extra data to userInfo
+    var userInfo: [String: Any] = [:]
+    if let targetScreen = targetScreen {
+      userInfo["targetScreen"] = targetScreen
+    }
+    if let extraData = extraData {
+      userInfo["extraData"] = extraData
+    }
+    content.userInfo = userInfo
 
     // Set sound based on priority
-    if priority > 0 {
+    if priority >= 2 {
       content.sound = UNNotificationSound.default
     }
 
+    // Create identifier
+    let notificationId = Int.random(in: 1...1000000)
+    let identifier = String(notificationId)
+
     // Create the request
-    let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+    let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
 
     // Add the request to the notification center
     UNUserNotificationCenter.current().add(request, withCompletionHandler: nil)
+    
+    return notificationId
   }
 
-  private func setupNotificationActions() {
-    // Define the actions
-    let openSettingsAction = UNNotificationAction(
-      identifier: "OPEN_SETTINGS",
-      title: "Open Settings",
-      options: .foreground
-    )
-
-    let viewProfileAction = UNNotificationAction(
-      identifier: "VIEW_PROFILE",
-      title: "View Profile",
-      options: .foreground
-    )
+  private func setupDynamicNotificationActions(categoryIdentifier: String, actions: [[String: String]]) {
+    var unActions: [UNNotificationAction] = []
+    
+    for (index, action) in actions.enumerated() {
+      if let title = action["title"] {
+        let route = action["route"] ?? ""
+        // Store the route in the action identifier so we can retrieve it later
+        let identifier = "ACTION_\(index)_\(route)"
+        let unAction = UNNotificationAction(
+          identifier: identifier,
+          title: title,
+          options: .foreground
+        )
+        unActions.append(unAction)
+      }
+    }
 
     // Define the category
     let actionCategory = UNNotificationCategory(
-      identifier: "ACTION_CATEGORY",
-      actions: [openSettingsAction, viewProfileAction],
+      identifier: categoryIdentifier,
+      actions: unActions,
       intentIdentifiers: [],
       options: []
     )
 
-    // Register the category
-    UNUserNotificationCenter.current().setNotificationCategories([actionCategory])
+    // Register the category (this adds to existing ones)
+    UNUserNotificationCenter.current().getNotificationCategories { categories in
+      var newCategories = categories
+      newCategories.insert(actionCategory)
+      UNUserNotificationCenter.current().setNotificationCategories(newCategories)
+    }
   }
 
   private func downloadImage(from url: URL, completion: @escaping (URL?) -> Void) {
@@ -414,16 +525,16 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin, UNUserNotificati
         if let notificationResponse = try? JSONDecoder().decode(NotificationResponse.self, from: data) {
           // Show notifications
           for notification in notificationResponse.notifications {
-            let content = UNMutableNotificationContent()
-            content.title = notification.title
-            content.body = notification.message
-
-            if let bigText = notification.bigText {
-              content.subtitle = bigText
-            }
-
-            let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
-            UNUserNotificationCenter.current().add(request, withCompletionHandler: nil)
+            _ = self.showNotification(
+              title: notification.title,
+              message: notification.message,
+              channelId: notification.channelId,
+              priority: 2, // Default importance
+              autoCancel: true,
+              id: nil,
+              targetScreen: notification.targetScreen,
+              extraData: notification.extraData
+            )
           }
         }
       } catch {
@@ -563,20 +674,33 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin, UNUserNotificati
   public func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
     // Handle notification actions
     let actionIdentifier = response.actionIdentifier
+    let userInfo = response.notification.request.content.userInfo
+    
+    // Extract target screen and extra data
+    let targetScreen = userInfo["targetScreen"] as? String
+    let extraData = userInfo["extraData"] as? [String: Any]
 
     // Handle custom actions
-    switch actionIdentifier {
-    case "OPEN_SETTINGS":
-      if let url = URL(string: UIApplication.openSettingsURLString) {
-        DispatchQueue.main.async {
-          UIApplication.shared.open(url, options: [:], completionHandler: nil)
-        }
+    if actionIdentifier.hasPrefix("ACTION_") {
+      // Format: ACTION_index_route
+      let components = actionIdentifier.components(separatedBy: "_")
+      if components.count >= 3 {
+        let route = components.dropFirst(2).joined(separator: "_")
+        
+        // Send action tap event to Dart
+        var args: [String: Any] = ["route": route]
+        if let targetScreen = targetScreen { args["targetScreen"] = targetScreen }
+        if let extraData = extraData { args["extraData"] = extraData }
+        
+        channel?.invokeMethod("onActionTap", arguments: args)
       }
-    case "VIEW_PROFILE":
-      // Handle view profile action
-      break
-    default:
-      break
+    } else if actionIdentifier == UNNotificationDefaultActionIdentifier {
+      // Standard tap on notification
+      var args: [String: Any] = [:]
+      if let targetScreen = targetScreen { args["targetScreen"] = targetScreen }
+      if let extraData = extraData { args["extraData"] = extraData }
+      
+      channel?.invokeMethod("onNotificationTap", arguments: args)
     }
 
     completionHandler()
@@ -594,4 +718,50 @@ struct NotificationData: Decodable {
   let message: String
   let bigText: String?
   let channelId: String?
+  let targetScreen: String?
+  let extraData: [String: Any]?
+
+  enum CodingKeys: String, CodingKey {
+    case title, message, bigText, channelId, targetScreen, extraData
+  }
+
+  init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    title = try container.decode(String.self, forKey: .title)
+    message = try container.decode(String.self, forKey: .message)
+    bigText = try container.decodeIfPresent(String.self, forKey: .bigText)
+    channelId = try container.decodeIfPresent(String.self, forKey: .channelId)
+    targetScreen = try container.decodeIfPresent(String.self, forKey: .targetScreen)
+    
+    // extraData is tricky with Decodable if it's a generic [String: Any]
+    if let data = try? container.decodeIfPresent([String: AnyDecodable].self, forKey: .extraData) {
+      extraData = data.mapValues { $0.value }
+    } else {
+      extraData = nil
+    }
+  }
+}
+
+// Helper to decode [String: Any]
+struct AnyDecodable: Decodable {
+  let value: Any
+
+  init(from decoder: Decoder) throws {
+    let container = try decoder.singleValueContainer()
+    if let string = try? container.decode(String.self) {
+      value = string
+    } else if let int = try? container.decode(Int.self) {
+      value = int
+    } else if let double = try? container.decode(Double.self) {
+      value = double
+    } else if let bool = try? container.decode(Bool.self) {
+      value = bool
+    } else if let array = try? container.decode([AnyDecodable].self) {
+      value = array.map { $0.value }
+    } else if let dictionary = try? container.decode([String: AnyDecodable].self) {
+      value = dictionary.mapValues { $0.value }
+    } else {
+      throw DecodingError.dataCorruptedError(in: container, debugDescription: "AnyDecodable value not found")
+    }
+  }
 }
