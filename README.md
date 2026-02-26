@@ -40,12 +40,6 @@ flutter pub get
 
 ![Notification_master_github_showcase_e783d3a788](https://github.com/user-attachments/assets/fe87ddb1-4144-4ab7-b2b2-45c1096fbab2)
 
-<img width="366" height="334" alt="Capture4" src="https://github.com/user-attachments/assets/dc52cc65-f76d-424e-855a-c2db93467c8e" />
-<img width="352" height="204" alt="Capture3" src="https://github.com/user-attachments/assets/8f30aeae-9496-403c-b904-68266dbdddec" />
-<img width="381" height="194" alt="Capture2" src="https://github.com/user-attachments/assets/a052ef7d-48e4-4af4-a765-d4006c3d6d2e" />
-<img width="359" height="175" alt="Capture1" src="https://github.com/user-attachments/assets/3e2ba6ef-7602-43bd-8143-f64b84d0f935" />
-<img width="352" height="124" alt="Capture" src="https://github.com/user-attachments/assets/7ae1ac99-cf9f-4214-a079-25e87f3ca5c4" />
-
 - Windows
 
 
