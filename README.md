@@ -38,6 +38,7 @@ flutter pub get
 
 - Android
 
+![Notification_master_github_showcase_e783d3a788](https://github.com/user-attachments/assets/fe87ddb1-4144-4ab7-b2b2-45c1096fbab2)
 
 <img width="366" height="334" alt="Capture4" src="https://github.com/user-attachments/assets/dc52cc65-f76d-424e-855a-c2db93467c8e" />
 <img width="352" height="204" alt="Capture3" src="https://github.com/user-attachments/assets/8f30aeae-9496-403c-b904-68266dbdddec" />
