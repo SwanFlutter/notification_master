@@ -33,7 +33,6 @@ class NotificationPolling {
     if (Platform.isAndroid || Platform.isIOS) {
       await Workmanager().initialize(
         callbackDispatcher,
-        isInDebugMode: kDebugMode,
       );
     }
   }

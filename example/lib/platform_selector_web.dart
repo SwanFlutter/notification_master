@@ -23,9 +23,7 @@ class UnsupportedPlatformPage extends StatelessWidget {
         backgroundColor: Colors.red,
         foregroundColor: Colors.white,
       ),
-      body: const Center(
-        child: Text('Unsupported'),
-      ),
+      body: const Center(child: Text('Unsupported')),
     );
   }
 }

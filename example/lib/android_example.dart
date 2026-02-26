@@ -132,7 +132,7 @@ class _AndroidNotificationExampleState
                   _buildButton(
                     'Heads-Up Notification (از بالا میاد)',
                     () async {
-                      print('📱 Sending heads-up notification...');
+                      debugPrint('📱 Sending heads-up notification...');
                       await _notificationMaster.showNotification(
                         id: 300,
                         title: '🔔 Heads-Up Notification',
@@ -149,7 +149,7 @@ class _AndroidNotificationExampleState
                   ),
 
                   _buildButton('Simple Notification (High Priority)', () async {
-                    print('📱 Sending high priority notification...');
+                    debugPrint('📱 Sending high priority notification...');
                     await _notificationMaster.showNotification(
                       id: 301,
                       title: 'Android High Priority',
@@ -162,7 +162,7 @@ class _AndroidNotificationExampleState
                   }, color: Colors.blue),
 
                   _buildButton('Low Priority Notification', () async {
-                    print('📱 Sending low priority notification...');
+                    debugPrint('📱 Sending low priority notification...');
                     await _notificationMaster.showNotification(
                       title: 'Android Low Priority',
                       message: 'This is a low priority notification',
@@ -182,7 +182,7 @@ class _AndroidNotificationExampleState
                       // If you want to change settings like sound/importance, you must use a new ID
                       // or reinstall the app.
                       const channelId = 'custom_channel_high_importance_v2';
-                      
+
                       await _notificationMaster.createCustomChannel(
                         channelId: channelId,
                         channelName: 'High Priority Channel',
@@ -208,45 +208,45 @@ class _AndroidNotificationExampleState
                       );
                       // print('✅ Confirmation notification sent');
                     } catch (e) {
-                      print('❌ Error creating custom channel: $e');
+                      debugPrint('❌ Error creating custom channel: $e');
                       _showSnackBar('Error: $e');
                     }
                   }, color: Colors.purple),
 
                   _buildButton('Notification with Custom Channel', () async {
-                    // print('📱 Sending notification with custom channel...');
+                    // debugPrint('📱 Sending notification with custom channel...');
                     try {
                       // Must match the ID used in creation above
                       const channelId = 'custom_channel_high_importance_v2';
-                      
+
                       await _notificationMaster.showStyledNotification(
                         title: 'نوتیفیکیشن کانال سفارشی',
                         message:
                             'این نوتیفیکیشن از کانال سفارشی استفاده می‌کند و باید صدا داشته باشد',
                         channelId: channelId,
                       );
-                      // print('✅ Notification sent successfully');
+                      // debugPrint('✅ Notification sent successfully');
                       _showSnackBar('Notification with custom channel sent');
                     } catch (e) {
-                      print('❌ Error sending notification: $e');
+                      debugPrint('❌ Error sending notification: $e');
                       _showSnackBar('Error: $e');
                     }
                   }, color: Colors.purple[700]),
 
                   _buildButton('Styled Notification (مثل تصویر)', () async {
-                    // print('📱 Sending styled notification...');
+                    // debugPrint('📱 Sending styled notification...');
                     try {
                       await _notificationMaster.showStyledNotification(
                         title: 'ویرایش عصرگاهی ؟ • now 🔔',
                         message:
                             'این نوتیفیکیشن با آیکون اپلیکیشن و متن کامل نمایش داده میشه',
                       );
-                      // print('✅ Styled notification sent');
+                      // debugPrint('✅ Styled notification sent');
                       _showSnackBar(
                         'Styled notification sent (check notification bar)',
                       );
                     } catch (e) {
-                      print('❌ Error sending styled notification: $e');
+                      debugPrint('❌ Error sending styled notification: $e');
                       _showSnackBar('Error: $e');
                     }
                   }, color: Colors.deepPurple),
@@ -271,7 +271,9 @@ class _AndroidNotificationExampleState
 
                 _buildSectionCard('Android Rich Notifications', [
                   _buildButton('Heads-Up Notification (Custom UI)', () async {
-                    print('📱 Sending heads-up notification with custom UI...');
+                    debugPrint(
+                      '📱 Sending heads-up notification with custom UI...',
+                    );
                     await _notificationMaster.showHeadsUpNotification(
                       title: '🎨 Custom Heads-Up',
                       message: 'این نوتیفیکیشن از بالا میاد و UI سفارشی داره',
@@ -280,7 +282,7 @@ class _AndroidNotificationExampleState
                   }, color: Colors.deepOrange),
 
                   _buildButton('Full Screen Notification', () async {
-                    print('📱 Sending full screen notification...');
+                    debugPrint('📱 Sending full screen notification...');
                     await _notificationMaster.showFullScreenNotification(
                       title: '📞 Full Screen Alert',
                       message: 'این نوتیفیکیشن تمام صفحه رو میگیره (مثل تماس)',
@@ -289,7 +291,7 @@ class _AndroidNotificationExampleState
                   }, color: Colors.red),
 
                   _buildButton('Big Text Notification', () async {
-                    print('📱 Sending big text notification...');
+                    debugPrint('📱 Sending big text notification...');
                     await _notificationMaster.showBigTextNotification(
                       title: 'Android Big Text',
                       message: 'This is the main message',
@@ -305,7 +307,7 @@ class _AndroidNotificationExampleState
                   }, color: Colors.teal),
 
                   _buildButton('Image Notification', () async {
-                    print('📱 Sending image notification...');
+                    debugPrint('📱 Sending image notification...');
                     await _notificationMaster.showImageNotification(
                       title: 'Android Image Notification',
                       message: 'This notification includes an image',

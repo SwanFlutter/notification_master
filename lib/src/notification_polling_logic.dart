@@ -9,7 +9,7 @@ Future<void> fetchAndShowNotifications(String url) async {
   final response = await http.get(Uri.parse(url));
   if (response.statusCode == 200) {
     final data = jsonDecode(response.body);
-    
+
     if (data is Map<String, dynamic>) {
       // Check if it's a wrapper like { "notifications": [...] }
       if (data.containsKey('notifications') && data['notifications'] is List) {
@@ -33,7 +33,7 @@ Future<void> fetchAndShowNotifications(String url) async {
 
 Future<void> processNotification(Map<String, dynamic> data) async {
   final master = NotificationMaster();
-  
+
   // Basic validation
   if (!data.containsKey('title') || !data.containsKey('message')) {
     return;
@@ -45,15 +45,19 @@ Future<void> processNotification(Map<String, dynamic> data) async {
   final String? channelId = data['channelId'];
   final String? imageUrl = data['imageUrl'];
   final String? bigText = data['bigText'];
-  
+
   // Determine importance
   NotificationImportance importance = NotificationImportance.defaultImportance;
   if (data['importance'] != null) {
     // Map string or int to enum
     final imp = data['importance'];
-    if (imp == 'high' || imp == 1) importance = NotificationImportance.high;
-    else if (imp == 'low' || imp == 2) importance = NotificationImportance.low;
-    else if (imp == 'min' || imp == 3) importance = NotificationImportance.min;
+    if (imp == 'high' || imp == 1) {
+      importance = NotificationImportance.high;
+    } else if (imp == 'low' || imp == 2) {
+      importance = NotificationImportance.low;
+    } else if (imp == 'min' || imp == 3) {
+      importance = NotificationImportance.min;
+    }
   }
 
   if (imageUrl != null && imageUrl.isNotEmpty) {

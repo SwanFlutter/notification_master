@@ -117,6 +117,7 @@ class _ImprovedPollingTestState extends State<ImprovedPollingTest> {
       await _pollingClient.pollOnce();
 
       // Feedback UI update (optional, since polling happens in background/client)
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Manual poll requested')));
