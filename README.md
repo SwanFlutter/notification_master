@@ -38,12 +38,15 @@ flutter pub get
 
 - Android
 
+![Notification_master_github_showcase_e783d3a788](https://github.com/user-attachments/assets/fe87ddb1-4144-4ab7-b2b2-45c1096fbab2)
 
-<img width="366" height="334" alt="Capture4" src="https://github.com/user-attachments/assets/dc52cc65-f76d-424e-855a-c2db93467c8e" />
-<img width="352" height="204" alt="Capture3" src="https://github.com/user-attachments/assets/8f30aeae-9496-403c-b904-68266dbdddec" />
-<img width="381" height="194" alt="Capture2" src="https://github.com/user-attachments/assets/a052ef7d-48e4-4af4-a765-d4006c3d6d2e" />
-<img width="359" height="175" alt="Capture1" src="https://github.com/user-attachments/assets/3e2ba6ef-7602-43bd-8143-f64b84d0f935" />
-<img width="352" height="124" alt="Capture" src="https://github.com/user-attachments/assets/7ae1ac99-cf9f-4214-a079-25e87f3ca5c4" />
+
+- Ios
+
+
+![Notification_master_flutter_plugin_dc39493e02](https://github.com/user-attachments/assets/1fe98992-3c3e-41e4-84f9-6781f7883ed5)
+![Notification_master_flutter_plugin_23ec37c185](https://github.com/user-attachments/assets/fffc9b58-08d9-40ae-802c-529ab89d0189)
+
 
 - Windows
 
@@ -57,9 +60,8 @@ flutter pub get
 
 - Mac
 
-<img width="371" height="169" alt="Screenshot 2026-02-23 at 21 04 30" src="https://github.com/user-attachments/assets/42f95540-e157-43c4-8b1c-76ff2a2573b3" />
-<img width="376" height="154" alt="Screenshot 2026-02-23 at 21 04 57" src="https://github.com/user-attachments/assets/1a11b43b-160f-4ed6-9552-f18f6d1a690b" />
-<img width="382" height="196" alt="Screenshot 2026-02-23 at 21 05 30" src="https://github.com/user-attachments/assets/9479869d-1740-4f41-a5ab-70890c3f40ce" />
+![photo_2026-02-25_04-47-00](https://github.com/user-attachments/assets/ab7da4c0-3e30-4b79-b23d-89cd45ed0c4c)
+
 
 
 ## Platform Setup
