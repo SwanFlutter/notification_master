@@ -108,17 +108,42 @@ Also update the `<activity>` tag in the same file:
 
 ### 🍎 iOS
 
-Add to `ios/Runner/Info.plist`:
+#### 1. Podfile
+
+Make sure `ios/Podfile` starts with:
+
+```ruby
+platform :ios, '14.0'
+```
+
+After changing, run:
+
+```bash
+cd ios
+pod install
+cd ..
+```
+
+#### 2. Info.plist
+
+Add to `ios/Runner/Info.plist` inside the `<dict>` tag:
 
 ```xml
 <key>UIBackgroundModes</key>
 <array>
     <string>fetch</string>
     <string>remote-notification</string>
+    <string>processing</string>
+</array>
+<key>BGTaskSchedulerPermittedIdentifiers</key>
+<array>
+    <string>$(PRODUCT_BUNDLE_IDENTIFIER).notificationPolling</string>
 </array>
 ```
 
-In `example/ios/Runner/AppDelegate.swift`:
+#### 3. AppDelegate.swift
+
+Replace the content of `ios/Runner/AppDelegate.swift` with:
 
 ```swift
 import Flutter
@@ -132,46 +157,53 @@ import UserNotifications
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    // Set delegate to show notifications while app is in foreground
+    // Required: show notifications while app is in foreground
     UNUserNotificationCenter.current().delegate = self
-    
+
+    // Required: register background polling task
     NotificationMasterPlugin.registerBackgroundTask()
+
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
   }
-  
+
   // Show notifications while app is in foreground
-  func userNotificationCenter(_ center: UNUserNotificationCenter,
-                             willPresent notification: UNNotification,
-                             withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+  func userNotificationCenter(
+    _ center: UNUserNotificationCenter,
+    willPresent notification: UNNotification,
+    withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+  ) {
     completionHandler([.banner, .sound, .badge])
   }
-  
+
   // Handle notification tap
-  func userNotificationCenter(_ center: UNUserNotificationCenter,
-                             didReceive response: UNNotificationResponse,
-                             withCompletionHandler completionHandler: @escaping () -> Void) {
+  func userNotificationCenter(
+    _ center: UNUserNotificationCenter,
+    didReceive response: UNNotificationResponse,
+    withCompletionHandler completionHandler: @escaping () -> Void
+  ) {
     completionHandler()
   }
 }
 ```
 
-**Important Notes:**
-- `UNUserNotificationCenterDelegate` is required to show notifications while app is in foreground
-- The `willPresent` method allows notifications to be displayed when the app is open
-- The `didReceive` method handles notification tap events
+**Why these are required:**
+- `import notification_master` — needed to call `NotificationMasterPlugin.registerBackgroundTask()`
+- `UNUserNotificationCenterDelegate` — needed to show notifications when app is in foreground
+- `registerBackgroundTask()` — registers the background polling task with iOS
+- Without `willPresent`, notifications are silently dropped while the app is open
 
-**📖 For complete iOS setup guide including Podfile configuration, see:**
-- English: [IOS_SETUP.md](IOS_SETUP.md)
-- فارسی: [IOS_SETUP_FA.md](IOS_SETUP_FA.md)
-
-**⚠️ Common Issue - Deployment Target Error:**
-If you get a CocoaPods error about deployment target, see:
+**⚠️ Common Issue — Deployment Target Error:**
+If you get a CocoaPods error about minimum deployment target:
 - English: [IOS_DEPLOYMENT_TARGET_FIX.md](IOS_DEPLOYMENT_TARGET_FIX.md)
 - فارسی: [IOS_DEPLOYMENT_TARGET_FIX_FA.md](IOS_DEPLOYMENT_TARGET_FIX_FA.md)
+
+**📖 Complete iOS setup guide:**
+- English: [IOS_SETUP.md](IOS_SETUP.md)
+- فارسی: [IOS_SETUP_FA.md](IOS_SETUP_FA.md)
 
 ---
 

@@ -37,7 +37,7 @@ sudo gem install cocoapods
 
 ```yaml
 dependencies:
-  notification_master: ^0.0.5
+  notification_master: ^0.0.6
 ```
 
 ### 2. Install dependencies
@@ -119,13 +119,18 @@ end
 
 ## Info.plist Configuration
 
-Add to `example/ios/Runner/Info.plist`:
+Add to `ios/Runner/Info.plist` inside the `<dict>` tag:
 
 ```xml
 <key>UIBackgroundModes</key>
 <array>
     <string>fetch</string>
     <string>remote-notification</string>
+    <string>processing</string>
+</array>
+<key>BGTaskSchedulerPermittedIdentifiers</key>
+<array>
+    <string>$(PRODUCT_BUNDLE_IDENTIFIER).notificationPolling</string>
 </array>
 ```
 
@@ -133,37 +138,44 @@ Add to `example/ios/Runner/Info.plist`:
 
 ## AppDelegate Configuration
 
-Update `example/ios/Runner/AppDelegate.swift`:
+Update `ios/Runner/AppDelegate.swift`:
 
 ```swift
-import UIKit
 import Flutter
+import UIKit
+import notification_master
 import UserNotifications
 
-@UIApplicationMain
-@objc class AppDelegate: FlutterAppDelegate {
+@main
+@objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate, UNUserNotificationCenterDelegate {
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
+    // Required: show notifications while app is in foreground
     UNUserNotificationCenter.current().delegate = self
-    GeneratedPluginRegistrant.register(with: self)
+
+    // Required: register background polling task
+    NotificationMasterPlugin.registerBackgroundTask()
+
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
-  
-  override func userNotificationCenter(
+
+  func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
+    GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+  }
+
+  // Show notifications while app is in foreground
+  func userNotificationCenter(
     _ center: UNUserNotificationCenter,
     willPresent notification: UNNotification,
     withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
   ) {
-    if #available(iOS 14.0, *) {
-      completionHandler([.banner, .sound, .badge])
-    } else {
-      completionHandler([.alert, .sound, .badge])
-    }
+    completionHandler([.banner, .sound, .badge])
   }
-  
-  override func userNotificationCenter(
+
+  // Handle notification tap
+  func userNotificationCenter(
     _ center: UNUserNotificationCenter,
     didReceive response: UNNotificationResponse,
     withCompletionHandler completionHandler: @escaping () -> Void
@@ -172,6 +184,13 @@ import UserNotifications
   }
 }
 ```
+
+**Why each part is needed:**
+- `import notification_master` — required to call `NotificationMasterPlugin.registerBackgroundTask()`
+- `FlutterImplicitEngineDelegate` — required for newer Flutter versions
+- `UNUserNotificationCenterDelegate` — required to show notifications when app is open
+- `registerBackgroundTask()` — registers background polling with iOS scheduler
+- `willPresent` — without this, iOS silently drops notifications while app is in foreground
 
 ---
 
