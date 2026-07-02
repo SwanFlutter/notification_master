@@ -1,0 +1,34 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+  package="com.example.notification_master">
+
+  <application>
+
+    <!-- Foreground service for continuous notification polling -->
+    <service
+      android:name=".NotificationForegroundService"
+      android:exported="false"
+      android:foregroundServiceType="dataSync"
+      android:stopWithTask="false" />
+
+    <!-- Receiver to restart polling after device reboot -->
+    <receiver
+      android:name=".BootCompletedReceiver"
+      android:exported="false">
+      <intent-filter>
+        <action android:name="android.intent.action.BOOT_COMPLETED" />
+        <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+      </intent-filter>
+    </receiver>
+
+    <!-- Receiver for incoming notification broadcasts -->
+    <receiver
+      android:name=".NotificationReceiver"
+      android:exported="false">
+      <intent-filter>
+        <action android:name="com.example.notification_master.NOTIFICATION_RECEIVED" />
+      </intent-filter>
+    </receiver>
+
+  </application>
+
+</manifest>
