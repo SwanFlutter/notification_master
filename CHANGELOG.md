@@ -7,9 +7,29 @@
 * **Android**: Removed permissions from plugin's `AndroidManifest.xml` — permissions must now be declared by the app developer (see README). Added proper component declarations: `NotificationForegroundService` (with `foregroundServiceType="dataSync"`), `BootCompletedReceiver` (with `BOOT_COMPLETED` + `MY_PACKAGE_REPLACED`), and `NotificationReceiver`.
 * **Android**: Migrated `android/build.gradle.kts` to built-in Kotlin — removed `kotlin-android` plugin and `kotlinOptions` block; added `kotlin { compilerOptions {} }` DSL block as required by Flutter 3.44+.
 * **Web/WASM**: Fixed `dart:io` import in `unified_notification_service.dart` and `notification_master_desktop.dart` by introducing conditional imports (`platform_utils.dart`). Package is now Web and WASM compatible.
-* **Windows**: Added three new notification types: `showStyledNotification()` (with attribution text), `showHeadsUpNotification()` (Alarm scenario), and `showFullScreenNotification()` (IncomingCall scenario). Enhanced Windows support with multiple notification scenarios, custom audio (Alarm, Call, SMS, etc.), and long duration support.
-* **Windows**: Upgraded googletest from v1.11.0 to v1.14.0 in `windows/CMakeLists.txt` and `linux/CMakeLists.txt` to fix CMake 3.31+ compatibility.
-* **Windows**: Fixed namespace inconsistency — changed from `notification_master_windows::NotificationMasterWindowsPlugin` to `notification_master::NotificationMasterPlugin` for consistency with C API and tests.
+* **Windows**: Added three new notification methods:
+  - `showStyledNotification()`: Uses Text04 template with attribution text "Notification Master" at bottom, long duration (25 seconds), professional appearance
+  - `showHeadsUpNotification()`: Uses Alarm scenario with looping alarm sound (AudioSystemFile::Alarm), long duration, high visibility for important alerts
+  - `showFullScreenNotification()`: Uses IncomingCall scenario with looping call ringtone (AudioSystemFile::Call), most intrusive notification for urgent events
+* **Windows**: Enhanced notification support:
+  - 7 notification types total (Simple, Big Text, Image, Actions, Styled, Heads-Up, Full Screen)
+  - Multiple scenarios: Default, Alarm, IncomingCall with appropriate audio
+  - Audio options: Default, IM, Mail, SMS, Reminder, Alarm (looping), Call (looping)
+  - Duration control: Short (5 seconds) and Long (25 seconds)
+  - Attribution text support for branding
+  - Image download and caching from HTTP/HTTPS URLs
+  - Windows Action Center integration
+  - Full WinRT Toast Notification API support
+* **Windows**: Build and compatibility improvements:
+  - Upgraded googletest from v1.11.0 to v1.14.0 in `windows/CMakeLists.txt` and `linux/CMakeLists.txt` to fix CMake 3.31+ compatibility issues
+  - Fixed namespace inconsistency — changed from `notification_master_windows::NotificationMasterWindowsPlugin` to `notification_master::NotificationMasterPlugin` for consistency with C API and tests
+  - Compatible with Windows 10/11
+* **Windows**: Documentation added:
+  - New `WINDOWS_NOTIFICATIONS_GUIDE.md` with complete examples for all 7 notification types
+  - Platform comparison table (Windows vs Linux vs macOS vs Android vs iOS)
+  - Best practices and when to use each notification type
+  - Audio options guide
+  - Troubleshooting section
 * **Example**: Completely redesigned `windows_example.dart` with modern UI, gradient background, feature cards, and demos for all 7 notification types. Added `http` package to example dependencies.
 * **Example**: Fixed import paths and deprecated API usage (`withOpacity` → `withValues`).
 * **pubspec**: Updated minimum Flutter SDK to `>=3.44.0` and Dart SDK to `^3.12.0`.
