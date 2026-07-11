@@ -202,8 +202,6 @@ abstract class NotificationMasterPlatform extends PlatformInterface {
   /// On Android/iOS with Firebase this reflects both FCM and local subscriptions.
   /// Without Firebase, it reflects locally stored subscriptions only.
   Future<List<String>> getSubscribedTopics() {
-    throw UnimplementedError(
-      'getSubscribedTopics() has not been implemented.',
-    );
+    throw UnimplementedError('getSubscribedTopics() has not been implemented.');
   }
 }

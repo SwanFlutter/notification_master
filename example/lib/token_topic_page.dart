@@ -24,12 +24,12 @@ class _TokenTopicPageState extends State<TokenTopicPage> {
   final _topicController = TextEditingController();
 
   String? _deviceToken;
-  String  _tokenSource  = '';
+  String _tokenSource = '';
   List<String> _subscribedTopics = [];
 
   // fine-grained loading flags so the page stays visible while loading
-  bool _tokenLoading  = false;
-  bool _topicLoading  = false;
+  bool _tokenLoading = false;
+  bool _topicLoading = false;
 
   @override
   void initState() {
@@ -59,9 +59,9 @@ class _TokenTopicPageState extends State<TokenTopicPage> {
 
   /// Detects token source from its length / format.
   String _detectSource(String token) {
-    if (token.length > 100)  return 'FCM token (Firebase)';
-    if (token.length == 36)  return 'UUID (no Firebase)';
-    if (token.contains('-'))  return 'UUID / hostname (Desktop)';
+    if (token.length > 100) return 'FCM token (Firebase)';
+    if (token.length == 36) return 'UUID (no Firebase)';
+    if (token.contains('-')) return 'UUID / hostname (Desktop)';
     return 'Device ID (no Firebase)';
   }
 
@@ -73,8 +73,8 @@ class _TokenTopicPageState extends State<TokenTopicPage> {
       final token = await _nm.getDeviceToken();
       final source = token == null ? 'unavailable' : _detectSource(token);
       setState(() {
-        _deviceToken  = token;
-        _tokenSource  = source;
+        _deviceToken = token;
+        _tokenSource = source;
         _tokenLoading = false;
       });
       token != null
@@ -104,8 +104,10 @@ class _TokenTopicPageState extends State<TokenTopicPage> {
       _topicController.clear();
       await _loadSubscribedTopics();
       setState(() => _topicLoading = false);
-      _snack(ok ? 'Subscribed to "$topic"' : 'Subscribe failed',
-          color: ok ? Colors.green : Colors.red);
+      _snack(
+        ok ? 'Subscribed to "$topic"' : 'Subscribe failed',
+        color: ok ? Colors.green : Colors.red,
+      );
     } catch (e) {
       setState(() => _topicLoading = false);
       _snack('Error: $e', color: Colors.red);
@@ -118,8 +120,10 @@ class _TokenTopicPageState extends State<TokenTopicPage> {
       final ok = await _nm.unsubscribeFromTopic(topic);
       await _loadSubscribedTopics();
       setState(() => _topicLoading = false);
-      _snack(ok ? 'Unsubscribed from "$topic"' : 'Unsubscribe failed',
-          color: ok ? Colors.green : Colors.red);
+      _snack(
+        ok ? 'Unsubscribed from "$topic"' : 'Unsubscribe failed',
+        color: ok ? Colors.green : Colors.red,
+      );
     } catch (e) {
       setState(() => _topicLoading = false);
       _snack('Error: $e', color: Colors.red);
@@ -167,12 +171,16 @@ class _TokenTopicPageState extends State<TokenTopicPage> {
       child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(children: [
-            Icon(Icons.info_outline, color: Colors.amber, size: 18),
-            SizedBox(width: 6),
-            Text('How tokens work',
-                style: TextStyle(fontWeight: FontWeight.bold)),
-          ]),
+          Row(
+            children: [
+              Icon(Icons.info_outline, color: Colors.amber, size: 18),
+              SizedBox(width: 6),
+              Text(
+                'How tokens work',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
           SizedBox(height: 6),
           Text(
             'Firebase present → real FCM token + direct topic subscription.\n'
@@ -196,9 +204,13 @@ class _TokenTopicPageState extends State<TokenTopicPage> {
           onPressed: _tokenLoading ? null : _getDeviceToken,
           icon: _tokenLoading
               ? const SizedBox(
-                  width: 16, height: 16,
+                  width: 16,
+                  height: 16,
                   child: CircularProgressIndicator(
-                      strokeWidth: 2, color: Colors.white))
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
               : const Icon(Icons.refresh),
           label: Text(_tokenLoading ? 'Fetching…' : 'Get Device Token'),
           style: ElevatedButton.styleFrom(
@@ -210,12 +222,16 @@ class _TokenTopicPageState extends State<TokenTopicPage> {
         if (_deviceToken != null) ...[
           const SizedBox(height: 12),
           // source badge
-          Row(children: [
-            const Icon(Icons.source, size: 14, color: Colors.grey),
-            const SizedBox(width: 4),
-            Text('Source: $_tokenSource',
-                style: const TextStyle(fontSize: 12, color: Colors.grey)),
-          ]),
+          Row(
+            children: [
+              const Icon(Icons.source, size: 14, color: Colors.grey),
+              const SizedBox(width: 4),
+              Text(
+                'Source: $_tokenSource',
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
+          ),
           const SizedBox(height: 6),
           // token value box
           Container(
@@ -249,34 +265,45 @@ class _TokenTopicPageState extends State<TokenTopicPage> {
       title: 'Topic Subscription',
       icon: Icons.label,
       children: [
-        Row(children: [
-          Expanded(
-            child: TextField(
-              controller: _topicController,
-              enabled: !_topicLoading,
-              decoration: InputDecoration(
-                hintText: 'e.g. news, alerts, offers',
-                border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8)),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _topicController,
+                enabled: !_topicLoading,
+                decoration: InputDecoration(
+                  hintText: 'e.g. news, alerts, offers',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                ),
+                onSubmitted: (_) => _subscribeToTopic(),
               ),
-              onSubmitted: (_) => _subscribeToTopic(),
             ),
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton(
-            onPressed: _topicLoading ? null : _subscribeToTopic,
-            style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green, foregroundColor: Colors.white),
-            child: _topicLoading
-                ? const SizedBox(
-                    width: 16, height: 16,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white))
-                : const Text('Subscribe'),
-          ),
-        ]),
+            const SizedBox(width: 8),
+            ElevatedButton(
+              onPressed: _topicLoading ? null : _subscribeToTopic,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+              ),
+              child: _topicLoading
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text('Subscribe'),
+            ),
+          ],
+        ),
         const SizedBox(height: 12),
 
         // subscribed topics list
@@ -284,32 +311,38 @@ class _TokenTopicPageState extends State<TokenTopicPage> {
           Center(
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Text('No active subscriptions',
-                  style: TextStyle(
-                      color: Colors.grey[500], fontStyle: FontStyle.italic)),
+              child: Text(
+                'No active subscriptions',
+                style: TextStyle(
+                  color: Colors.grey[500],
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
             ),
           )
         else ...[
-          Text('Active (${_subscribedTopics.length}):',
-              style: const TextStyle(
-                  fontWeight: FontWeight.bold, fontSize: 13)),
+          Text(
+            'Active (${_subscribedTopics.length}):',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+          ),
           const SizedBox(height: 6),
-          ..._subscribedTopics.map((topic) => Card(
-                margin: const EdgeInsets.only(bottom: 4),
-                child: ListTile(
-                  dense: true,
-                  leading:
-                      const Icon(Icons.label_outline, color: Colors.green),
-                  title: Text(topic),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.close, color: Colors.red, size: 18),
-                    tooltip: 'Unsubscribe',
-                    onPressed: _topicLoading
-                        ? null
-                        : () => _unsubscribeFromTopic(topic),
-                  ),
+          ..._subscribedTopics.map(
+            (topic) => Card(
+              margin: const EdgeInsets.only(bottom: 4),
+              child: ListTile(
+                dense: true,
+                leading: const Icon(Icons.label_outline, color: Colors.green),
+                title: Text(topic),
+                trailing: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.red, size: 18),
+                  tooltip: 'Unsubscribe',
+                  onPressed: _topicLoading
+                      ? null
+                      : () => _unsubscribeFromTopic(topic),
                 ),
-              )),
+              ),
+            ),
+          ),
         ],
 
         const SizedBox(height: 4),
@@ -318,14 +351,17 @@ class _TokenTopicPageState extends State<TokenTopicPage> {
           data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
           child: ExpansionTile(
             tilePadding: EdgeInsets.zero,
-            title: const Text('How to send from server',
-                style: TextStyle(fontSize: 12, color: Colors.blueGrey)),
+            title: const Text(
+              'How to send from server',
+              style: TextStyle(fontSize: 12, color: Colors.blueGrey),
+            ),
             children: [
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(6)),
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(6),
+                ),
                 child: const SelectableText(
                   '// Firebase (FCM HTTP v1)\n'
                   'POST fcm.googleapis.com/v1/projects/{id}/messages:send\n'
@@ -365,7 +401,8 @@ class _TokenTopicPageState extends State<TokenTopicPage> {
               icon: const Icon(Icons.add, size: 16),
               label: Text('Subscribe to "$topic"'),
               style: OutlinedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(40)),
+                minimumSize: const Size.fromHeight(40),
+              ),
             ),
           ),
       ],
@@ -386,13 +423,19 @@ class _TokenTopicPageState extends State<TokenTopicPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(children: [
-              Icon(icon, size: 20, color: Colors.deepPurple),
-              const SizedBox(width: 8),
-              Text(title,
+            Row(
+              children: [
+                Icon(icon, size: 20, color: Colors.deepPurple),
+                const SizedBox(width: 8),
+                Text(
+                  title,
                   style: const TextStyle(
-                      fontSize: 17, fontWeight: FontWeight.bold)),
-            ]),
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
             const Divider(height: 20),
             ...children,
           ],

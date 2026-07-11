@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:notification_master/notification_master.dart';
 
+import 'token_topic_page.dart';
+
 /// Android-specific notification example
 /// This file demonstrates Android-specific features like:
 /// - Custom notification channels
@@ -361,6 +363,14 @@ class _AndroidNotificationExampleState
                         .getActiveNotificationService();
                     _showSnackBar('Active service: $activeService');
                   }, color: Colors.amber[700]),
+                ]),
+
+                _buildSectionCard('Token & Topic Management', [
+                  _buildButton('Open Token & Topics Page', () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const TokenTopicPage()),
+                    );
+                  }, color: Colors.deepPurple),
                 ]),
               ],
             ),

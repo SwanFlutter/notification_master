@@ -281,18 +281,15 @@ class MethodChannelNotificationMaster extends NotificationMasterPlatform {
 
   @override
   Future<String?> getDeviceToken() async {
-    final result = await methodChannel.invokeMethod<String>(
-      'getDeviceToken',
-    );
+    final result = await methodChannel.invokeMethod<String>('getDeviceToken');
     return result;
   }
 
   @override
   Future<bool> subscribeToTopic(String topic) async {
-    final result = await methodChannel.invokeMethod<bool>(
-      'subscribeToTopic',
-      {'topic': topic},
-    );
+    final result = await methodChannel.invokeMethod<bool>('subscribeToTopic', {
+      'topic': topic,
+    });
     return result ?? false;
   }
 

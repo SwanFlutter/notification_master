@@ -13,27 +13,108 @@ class MockNotificationMasterPlatform
   final List<String> _topics = [];
 
   // ── Stubs ──────────────────────────────────────────────────────────────
-  @override Future<String?> getPlatformVersion() => Future.value('42');
-  @override Future<bool> checkNotificationPermission() => Future.value(true);
-  @override Future<bool> requestNotificationPermission() => Future.value(true);
-  @override Future<bool> setFirebaseAsActiveService() => Future.value(true);
-  @override Future<String> getActiveNotificationService() => Future.value('none');
-  @override Future<bool> createCustomChannel({
-    required String channelId, required String channelName,
-    String? channelDescription, int? importance, bool? enableLights,
-    int? lightColor, bool? enableVibration, bool? enableSound,
+  @override
+  Future<String?> getPlatformVersion() => Future.value('42');
+  @override
+  Future<bool> checkNotificationPermission() => Future.value(true);
+  @override
+  Future<bool> requestNotificationPermission() => Future.value(true);
+  @override
+  Future<bool> setFirebaseAsActiveService() => Future.value(true);
+  @override
+  Future<String> getActiveNotificationService() => Future.value('none');
+  @override
+  Future<bool> createCustomChannel({
+    required String channelId,
+    required String channelName,
+    String? channelDescription,
+    int? importance,
+    bool? enableLights,
+    int? lightColor,
+    bool? enableVibration,
+    bool? enableSound,
   }) => Future.value(true);
-  @override Future<bool> startNotificationPolling({required String pollingUrl, int? intervalMinutes}) => Future.value(true);
-  @override Future<bool> stopNotificationPolling() => Future.value(true);
-  @override Future<bool> startForegroundService({required String pollingUrl, int? intervalMinutes, String? channelId}) => Future.value(true);
-  @override Future<bool> stopForegroundService() => Future.value(true);
-  @override Future<int> showNotification({int? id, required String title, required String message, String? channelId, NotificationImportance? importance, bool? autoCancel, String? targetScreen, Map<String, dynamic>? extraData}) => Future.value(id ?? 1);
-  @override Future<int> showBigTextNotification({required String title, required String message, required String bigText, String? channelId, NotificationImportance? importance, bool? autoCancel, String? targetScreen, Map<String, dynamic>? extraData}) => Future.value(2);
-  @override Future<int> showImageNotification({required String title, required String message, required String imageUrl, String? channelId, NotificationImportance? importance, bool? autoCancel, String? targetScreen, Map<String, dynamic>? extraData}) => Future.value(3);
-  @override Future<int> showNotificationWithActions({required String title, required String message, required List<Map<String, String>> actions, String? channelId, NotificationImportance? importance, bool? autoCancel, String? targetScreen, Map<String, dynamic>? extraData}) => Future.value(4);
-  @override Future<int> showHeadsUpNotification({required String title, required String message, String? targetScreen, Map<String, dynamic>? extraData}) => Future.value(5);
-  @override Future<int> showFullScreenNotification({required String title, required String message, String? targetScreen, Map<String, dynamic>? extraData}) => Future.value(6);
-  @override Future<int> showStyledNotification({required String title, required String message, String? channelId, String? targetScreen, Map<String, dynamic>? extraData}) => Future.value(7);
+  @override
+  Future<bool> startNotificationPolling({
+    required String pollingUrl,
+    int? intervalMinutes,
+  }) => Future.value(true);
+  @override
+  Future<bool> stopNotificationPolling() => Future.value(true);
+  @override
+  Future<bool> startForegroundService({
+    required String pollingUrl,
+    int? intervalMinutes,
+    String? channelId,
+  }) => Future.value(true);
+  @override
+  Future<bool> stopForegroundService() => Future.value(true);
+  @override
+  Future<int> showNotification({
+    int? id,
+    required String title,
+    required String message,
+    String? channelId,
+    NotificationImportance? importance,
+    bool? autoCancel,
+    String? targetScreen,
+    Map<String, dynamic>? extraData,
+  }) => Future.value(id ?? 1);
+  @override
+  Future<int> showBigTextNotification({
+    required String title,
+    required String message,
+    required String bigText,
+    String? channelId,
+    NotificationImportance? importance,
+    bool? autoCancel,
+    String? targetScreen,
+    Map<String, dynamic>? extraData,
+  }) => Future.value(2);
+  @override
+  Future<int> showImageNotification({
+    required String title,
+    required String message,
+    required String imageUrl,
+    String? channelId,
+    NotificationImportance? importance,
+    bool? autoCancel,
+    String? targetScreen,
+    Map<String, dynamic>? extraData,
+  }) => Future.value(3);
+  @override
+  Future<int> showNotificationWithActions({
+    required String title,
+    required String message,
+    required List<Map<String, String>> actions,
+    String? channelId,
+    NotificationImportance? importance,
+    bool? autoCancel,
+    String? targetScreen,
+    Map<String, dynamic>? extraData,
+  }) => Future.value(4);
+  @override
+  Future<int> showHeadsUpNotification({
+    required String title,
+    required String message,
+    String? targetScreen,
+    Map<String, dynamic>? extraData,
+  }) => Future.value(5);
+  @override
+  Future<int> showFullScreenNotification({
+    required String title,
+    required String message,
+    String? targetScreen,
+    Map<String, dynamic>? extraData,
+  }) => Future.value(6);
+  @override
+  Future<int> showStyledNotification({
+    required String title,
+    required String message,
+    String? channelId,
+    String? targetScreen,
+    Map<String, dynamic>? extraData,
+  }) => Future.value(7);
 
   // ── Under test ─────────────────────────────────────────────────────────
   @override
@@ -115,15 +196,16 @@ void main() {
     setUp(() => mock.clearTopics());
 
     test('returns true on success', () async {
-      final result =
-          await NotificationMasterPlatform.instance.subscribeToTopic('news');
+      final result = await NotificationMasterPlatform.instance.subscribeToTopic(
+        'news',
+      );
       expect(result, isTrue);
     });
 
     test('subscribed topic appears in getSubscribedTopics', () async {
       await NotificationMasterPlatform.instance.subscribeToTopic('news');
-      final topics =
-          await NotificationMasterPlatform.instance.getSubscribedTopics();
+      final topics = await NotificationMasterPlatform.instance
+          .getSubscribedTopics();
       expect(topics, contains('news'));
     });
 
@@ -131,16 +213,16 @@ void main() {
       await NotificationMasterPlatform.instance.subscribeToTopic('news');
       await NotificationMasterPlatform.instance.subscribeToTopic('offers');
       await NotificationMasterPlatform.instance.subscribeToTopic('alerts');
-      final topics =
-          await NotificationMasterPlatform.instance.getSubscribedTopics();
+      final topics = await NotificationMasterPlatform.instance
+          .getSubscribedTopics();
       expect(topics, containsAll(['news', 'offers', 'alerts']));
     });
 
     test('duplicate subscribe does not add topic twice', () async {
       await NotificationMasterPlatform.instance.subscribeToTopic('news');
       await NotificationMasterPlatform.instance.subscribeToTopic('news');
-      final topics =
-          await NotificationMasterPlatform.instance.getSubscribedTopics();
+      final topics = await NotificationMasterPlatform.instance
+          .getSubscribedTopics();
       expect(topics.where((t) => t == 'news').length, equals(1));
     });
   });
@@ -159,8 +241,8 @@ void main() {
     test('topic is absent after unsubscribe', () async {
       await NotificationMasterPlatform.instance.subscribeToTopic('news');
       await NotificationMasterPlatform.instance.unsubscribeFromTopic('news');
-      final topics =
-          await NotificationMasterPlatform.instance.getSubscribedTopics();
+      final topics = await NotificationMasterPlatform.instance
+          .getSubscribedTopics();
       expect(topics, isNot(contains('news')));
     });
 
@@ -174,8 +256,8 @@ void main() {
       await NotificationMasterPlatform.instance.subscribeToTopic('news');
       await NotificationMasterPlatform.instance.subscribeToTopic('offers');
       await NotificationMasterPlatform.instance.unsubscribeFromTopic('news');
-      final topics =
-          await NotificationMasterPlatform.instance.getSubscribedTopics();
+      final topics = await NotificationMasterPlatform.instance
+          .getSubscribedTopics();
       expect(topics, isNot(contains('news')));
       expect(topics, contains('offers'));
     });
@@ -186,16 +268,16 @@ void main() {
     setUp(() => mock.clearTopics());
 
     test('returns empty list when nothing subscribed', () async {
-      final topics =
-          await NotificationMasterPlatform.instance.getSubscribedTopics();
+      final topics = await NotificationMasterPlatform.instance
+          .getSubscribedTopics();
       expect(topics, isEmpty);
     });
 
     test('returns all subscribed topics', () async {
       await NotificationMasterPlatform.instance.subscribeToTopic('news');
       await NotificationMasterPlatform.instance.subscribeToTopic('offers');
-      final topics =
-          await NotificationMasterPlatform.instance.getSubscribedTopics();
+      final topics = await NotificationMasterPlatform.instance
+          .getSubscribedTopics();
       expect(topics.length, equals(2));
       expect(topics, containsAll(['news', 'offers']));
     });
@@ -204,8 +286,8 @@ void main() {
       await NotificationMasterPlatform.instance.subscribeToTopic('news');
       await NotificationMasterPlatform.instance.subscribeToTopic('offers');
       await NotificationMasterPlatform.instance.unsubscribeFromTopic('offers');
-      final topics =
-          await NotificationMasterPlatform.instance.getSubscribedTopics();
+      final topics = await NotificationMasterPlatform.instance
+          .getSubscribedTopics();
       expect(topics.length, equals(1));
       expect(topics, contains('news'));
     });
@@ -213,8 +295,8 @@ void main() {
     test('empty list after all topics unsubscribed', () async {
       await NotificationMasterPlatform.instance.subscribeToTopic('news');
       await NotificationMasterPlatform.instance.unsubscribeFromTopic('news');
-      final topics =
-          await NotificationMasterPlatform.instance.getSubscribedTopics();
+      final topics = await NotificationMasterPlatform.instance
+          .getSubscribedTopics();
       expect(topics, isEmpty);
     });
   });
@@ -224,16 +306,15 @@ void main() {
     setUp(() => mock.clearTopics());
 
     test('token exists and topics can be bundled for server sync', () async {
-      final token =
-          await NotificationMasterPlatform.instance.getDeviceToken();
+      final token = await NotificationMasterPlatform.instance.getDeviceToken();
       expect(token, isNotNull);
       expect(token, isNotEmpty);
 
       await NotificationMasterPlatform.instance.subscribeToTopic('news');
       await NotificationMasterPlatform.instance.subscribeToTopic('offers');
 
-      final topics =
-          await NotificationMasterPlatform.instance.getSubscribedTopics();
+      final topics = await NotificationMasterPlatform.instance
+          .getSubscribedTopics();
       expect(topics, containsAll(['news', 'offers']));
 
       // Simulate building the server payload
@@ -248,8 +329,8 @@ void main() {
       await NotificationMasterPlatform.instance.unsubscribeFromTopic('news');
       await NotificationMasterPlatform.instance.unsubscribeFromTopic('offers');
 
-      final topics =
-          await NotificationMasterPlatform.instance.getSubscribedTopics();
+      final topics = await NotificationMasterPlatform.instance
+          .getSubscribedTopics();
       expect(topics, isEmpty);
     });
 
@@ -258,8 +339,8 @@ void main() {
       await NotificationMasterPlatform.instance.unsubscribeFromTopic('news');
       await NotificationMasterPlatform.instance.subscribeToTopic('news');
 
-      final topics =
-          await NotificationMasterPlatform.instance.getSubscribedTopics();
+      final topics = await NotificationMasterPlatform.instance
+          .getSubscribedTopics();
       expect(topics, contains('news'));
       expect(topics.where((t) => t == 'news').length, equals(1));
     });

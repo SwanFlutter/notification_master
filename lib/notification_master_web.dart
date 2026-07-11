@@ -303,7 +303,8 @@ class NotificationMasterWeb extends NotificationMasterPlatform {
   /// Shows a browser Notification as local confirmation (best-effort).
   void _showBrowserConfirmation(String title, String body) {
     try {
-      if (_isNotificationSupported() && web.Notification.permission == 'granted') {
+      if (_isNotificationSupported() &&
+          web.Notification.permission == 'granted') {
         web.Notification(title, web.NotificationOptions(body: body));
       }
     } catch (_) {
@@ -317,7 +318,9 @@ class NotificationMasterWeb extends NotificationMasterPlatform {
     try {
       const key = 'notification_master_device_token';
       final stored = web.window.localStorage.getItem(key);
-      final token = (stored != null && stored.isNotEmpty) ? stored : _generateUUID();
+      final token = (stored != null && stored.isNotEmpty)
+          ? stored
+          : _generateUUID();
       if (stored == null || stored.isEmpty) {
         web.window.localStorage.setItem(key, token);
       }
