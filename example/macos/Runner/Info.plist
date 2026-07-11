@@ -30,7 +30,7 @@
 	<string>NSApplication</string>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
-		<string>com.example.notification_master_example.notificationPolling</string>
+		<string>com.example.notification_master.polling</string>
 	</array>
 	<key>NSUserNotificationUsageDescription</key>
 	<string>This app uses notifications to keep you updated.</string>
