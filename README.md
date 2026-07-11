@@ -5,6 +5,15 @@ A comprehensive Flutter plugin for managing notifications across all platforms.
 
 ---
 
+[![Pub Points](https://img.shields.io/pub/points/permission_master)](https://pub.dev/packages/permission_master/score)
+[![Popularity](https://img.shields.io/pub/popularity/permission_master)](https://pub.dev/packages/permission_master)
+[![Pub Likes](https://img.shields.io/pub/likes/permission_master)](https://pub.dev/packages/permission_master)
+[![GitHub issues](https://img.shields.io/github/issues/SwanFlutter/permission_master)](https://github.com/SwanFlutter/permission_master/issues)
+[![GitHub forks](https://img.shields.io/github/forks/SwanFlutter/permission_master)](https://github.com/SwanFlutter/permission_master/network/members)
+
+---
+
+
 ## Platform Support
 
 | Platform | Support | Features                                                                 |
@@ -24,7 +33,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  notification_master: ^0.0.6
+  notification_master: ^0.0.7
 ```
 
 Run:
@@ -655,6 +664,250 @@ print('Active service: $service'); // e.g., "firebase" or "none"
 
 ---
 
+### `getDeviceToken()`
+
+A convenience wrapper that returns whatever push identifier is available on the current device.
+
+> **Important:** If your project already uses `firebase_messaging`, call `FirebaseMessaging.instance.getToken()` directly — that is the canonical way to get an FCM token. `getDeviceToken()` is useful when you want a single cross-platform call that works even without Firebase in the project.
+
+```dart
+final token = await notificationMaster.getDeviceToken();
+
+// Identify the source:
+// FCM token  → length ~152  (only when firebase_messaging is in the project)
+// Android ID → 16 hex chars (Firebase not present on Android)
+// UUID       → 36 chars     (iOS identifierForVendor, macOS hostName, etc.)
+print('Token: $token');
+```
+
+**What you receive per platform:**
+
+| Platform | Firebase present | Firebase absent |
+|----------|-----------------|-----------------|
+| Android | FCM token (~152 chars) | Android ID (16 hex) |
+| iOS | APNS token (hex) | `identifierForVendor` UUID |
+| macOS | — | machine hostname |
+| Windows | — | MachineGuid from registry |
+| Linux | — | `/etc/machine-id` or hostname |
+| Web | — | stable UUID in localStorage |
+
+**When Firebase is absent**, pair the token with `getSubscribedTopics()` and register both on your own server. Your server is then responsible for sending push notifications to the right devices.
+
+---
+
+### `subscribeToTopic(String topic)`
+
+Subscribe to a notification topic. Always succeeds — with Firebase it subscribes via FCM, without Firebase it stores the subscription locally so you can sync it to your server.
+
+```dart
+final success = await notificationMaster.subscribeToTopic('news');
+print('Subscribed: $success');
+```
+
+**Platform behavior:**
+- **Android with Firebase**: Calls `FirebaseMessaging.getInstance().subscribeToTopic()` and also saves locally
+- **Android without Firebase**: Saves to `SharedPreferences` — use with `getDeviceToken()` + `getSubscribedTopics()` to manage subscriptions server-side
+- **iOS**: Saves locally to `UserDefaults` — combine with `getDeviceToken()` to manage subscriptions server-side
+- **Web/Desktop**: Not supported
+
+---
+
+### `unsubscribeFromTopic(String topic)`
+
+Unsubscribe from a notification topic. Always succeeds — with Firebase it unsubscribes via FCM, without Firebase it removes the local record.
+
+```dart
+final success = await notificationMaster.unsubscribeFromTopic('news');
+print('Unsubscribed: $success');
+```
+
+**Platform behavior:**
+- **Android with Firebase**: Calls `FirebaseMessaging.getInstance().unsubscribeFromTopic()` and removes locally
+- **Android without Firebase**: Removes from `SharedPreferences`
+- **iOS**: Removes from `UserDefaults`
+- **Web/Desktop**: Not supported
+
+---
+
+### `getSubscribedTopics()`
+
+Returns the list of topics the device is currently subscribed to. This is the same list that both `subscribeToTopic` and `unsubscribeFromTopic` maintain, regardless of whether Firebase is present.
+
+```dart
+final topics = await notificationMaster.getSubscribedTopics();
+print('Active topics: $topics'); // e.g. ['news', 'offers', 'alerts']
+```
+
+**Platform behavior:**
+- **Android with Firebase**: Returns locally cached list (mirrors FCM subscriptions)
+- **Android / iOS without Firebase**: Returns locally stored list
+
+#### Complete server-side topic workflow (without Firebase)
+
+```dart
+final notificationMaster = NotificationMaster();
+
+// 1. Get the unique device identifier
+final token = await notificationMaster.getDeviceToken();
+
+// 2. Subscribe the device to one or more topics
+await notificationMaster.subscribeToTopic('news');
+await notificationMaster.subscribeToTopic('offers');
+
+// 3. Get the current subscription list
+final topics = await notificationMaster.getSubscribedTopics();
+
+// 4. Register token + topics on your server
+await myApi.registerDevice(token: token!, topics: topics);
+// Your server can now send a push notification to all devices
+// subscribed to 'news' by looking up tokens in its database.
+
+// Later — unsubscribe
+await notificationMaster.unsubscribeFromTopic('offers');
+final updatedTopics = await notificationMaster.getSubscribedTopics();
+await myApi.updateDevice(token: token!, topics: updatedTopics);
+```
+
+#### Send to a topic from your server (Firebase HTTP v1)
+
+```json
+POST https://fcm.googleapis.com/v1/projects/{project_id}/messages:send
+{
+  "message": {
+    "topic": "news",
+    "notification": {
+      "title": "Breaking News",
+      "body": "Something important happened."
+    }
+  }
+}
+```
+
+---
+
+## Notification Service Management
+
+The plugin provides a unified notification service management system that allows you to choose between different notification delivery methods. Only one service can be active at a time — starting a new service automatically stops the previous one.
+
+### Available Services
+
+| Service | Method | Battery Usage | Reliability | Use Case |
+|---------|--------|---------------|-------------|----------|
+| **Polling** | `startNotificationPolling()` | Low | Medium | Periodic background checks (every 15+ min) |
+| **Foreground Service** | `startForegroundService()` | High | High | Continuous real-time notifications |
+| **Firebase (FCM)** | `setFirebaseAsActiveService()` | Very Low | Very High | Push notifications from server |
+
+### How It Works
+
+1. **Service Selection**: When you start any notification service, the plugin saves the active service type in SharedPreferences and stops any previously running service.
+
+2. **Automatic Switching**: If you start Polling while Foreground Service is running, the Foreground Service is automatically stopped.
+
+3. **State Persistence**: The active service state persists across app restarts. You can check which service is active using `getActiveNotificationService()`.
+
+### Example: Service Manager UI
+
+```dart
+class NotificationServiceManager extends StatefulWidget {
+  @override
+  State<NotificationServiceManager> createState() => _NotificationServiceManagerState();
+}
+
+class _NotificationServiceManagerState extends State<NotificationServiceManager> {
+  final _nm = NotificationMaster();
+  String _activeService = 'none';
+
+  @override
+  void initState() {
+    super.initState();
+    _checkActiveService();
+  }
+
+  Future<void> _checkActiveService() async {
+    final service = await _nm.getActiveNotificationService();
+    setState(() => _activeService = service);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        // Status indicator
+        Text('Active: $_activeService',
+          style: TextStyle(fontWeight: FontWeight.bold)),
+
+        // Polling option
+        ElevatedButton(
+          onPressed: () async {
+            await _nm.startNotificationPolling(
+              pollingUrl: 'https://api.example.com/notifications',
+              intervalMinutes: 15,
+            );
+            _checkActiveService();
+          },
+          child: Text('Start Polling'),
+        ),
+
+        // Foreground service option
+        ElevatedButton(
+          onPressed: () async {
+            await _nm.startForegroundService(
+              pollingUrl: 'https://api.example.com/notifications',
+              intervalMinutes: 5,
+            );
+            _checkActiveService();
+          },
+          child: Text('Start Foreground Service'),
+        ),
+
+        // Firebase option
+        ElevatedButton(
+          onPressed: () async {
+            await _nm.setFirebaseAsActiveService();
+            _checkActiveService();
+          },
+          child: Text('Use Firebase (FCM)'),
+        ),
+
+        // Stop all
+        ElevatedButton(
+          onPressed: () async {
+            await _nm.stopNotificationPolling();
+            await _nm.stopForegroundService();
+            _checkActiveService();
+          },
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+          child: Text('Stop All Services'),
+        ),
+      ],
+    );
+  }
+}
+```
+
+### Service Lifecycle
+
+```
+App Start
+    │
+    ▼
+getActiveNotificationService() → "none"
+    │
+    ▼
+startNotificationPolling() → "polling" (Background WorkManager/BGTaskScheduler)
+    │
+    ▼
+startForegroundService() → "foreground" (polling stops automatically)
+    │
+    ▼
+setFirebaseAsActiveService() → "firebase" (foreground service stops automatically)
+    │
+    ▼
+stopNotificationPolling() + stopForegroundService() → "none"
+```
+
+---
+
 ## Using UnifiedNotificationService
 
 This class provides a unified interface for all platforms.
@@ -879,7 +1132,7 @@ class _HomePageState extends State<HomePage> {
 - **Channels**: Only supported on Android 8.0+; ignored on other platforms.
 - **App Icon**: Use `showStyledNotification()` to display the app icon in notifications. ⭐
 - **Sound**: Custom channels now properly support sound with `enableSound: true`. ✅
-- **iOS**: Requires iOS 14.0+ (due to workmanager_apple dependency). Supports iOS 14 through iOS 26+. 📱
+- **iOS**: Requires iOS 14.0+. Supports iOS 14 through iOS 26+. 📱
 
 ---
 
@@ -896,6 +1149,9 @@ class _HomePageState extends State<HomePage> {
 - `showStyledNotification()`: Notification with app icon and full text (recommended)
 - `showHeadsUpNotification()`: Notification that appears from top of screen
 - `showFullScreenNotification()`: Full-screen notification for urgent alerts
+- `getDeviceToken()`: Get device token for push notifications (FCM/APNS)
+- `subscribeToTopic()`: Subscribe to a notification topic for targeted push
+- `unsubscribeFromTopic()`: Unsubscribe from a notification topic
 
 ### 🪟 Windows Platform Enhancements:
 Windows now supports **7 notification types** with advanced scenarios:
@@ -913,7 +1169,8 @@ Windows now supports **7 notification types** with advanced scenarios:
 
 ### 🔧 Build Fixes:
 - macOS: Fixed BGTaskScheduler compilation errors
-- iOS: Set to iOS 14.0 deployment target (required by workmanager_apple, supports iOS 14-26+)
+- iOS: Set to iOS 14.0 deployment target
+- Removed `workmanager` dependency — background polling now uses native APIs directly
 - See `BUILD_FIXES.md` for details
 
 ---

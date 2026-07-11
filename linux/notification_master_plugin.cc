@@ -306,9 +306,64 @@ static void notification_master_plugin_handle_method_call(
     } else if (self->is_polling_active) {
       service = "polling";
     }
-    
     g_autoptr(FlValue) result = fl_value_new_string(service);
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
+  } else if (strcmp(method, "showHeadsUpNotification") == 0 ||
+             strcmp(method, "showFullScreenNotification") == 0 ||
+             strcmp(method, "showStyledNotification") == 0) {
+    // Treat as regular notification on Linux
+    if (fl_value_get_type(args) == FL_VALUE_TYPE_MAP) {
+      FlValue* title_value = fl_value_lookup_string(args, "title");
+      FlValue* message_value = fl_value_lookup_string(args, "message");
+      const gchar* title = title_value ? fl_value_get_string(title_value) : "Notification";
+      const gchar* message = message_value ? fl_value_get_string(message_value) : "";
+      gboolean success = show_notification(title, message, "default");
+      g_autoptr(FlValue) result = fl_value_new_int(success ? 1 : -1);
+      response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
+    } else {
+      response = FL_METHOD_RESPONSE(fl_method_error_response_new(
+          "INVALID_ARGUMENTS", "Invalid arguments", nullptr));
+    }
+  } else if (strcmp(method, "getDeviceToken") == 0) {
+    gchar* token = get_device_token();
+    g_autoptr(FlValue) result = fl_value_new_string(token ? token : "");
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
+    g_free(token);
+  } else if (strcmp(method, "subscribeToTopic") == 0) {
+    if (fl_value_get_type(args) == FL_VALUE_TYPE_MAP) {
+      FlValue* topic_value = fl_value_lookup_string(args, "topic");
+      if (topic_value && fl_value_get_type(topic_value) == FL_VALUE_TYPE_STRING) {
+        const gchar* topic = fl_value_get_string(topic_value);
+        subscribe_to_topic(topic);
+        g_autoptr(FlValue) result = fl_value_new_bool(TRUE);
+        response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
+      } else {
+        response = FL_METHOD_RESPONSE(fl_method_error_response_new(
+            "INVALID_TOPIC", "topic is required", nullptr));
+      }
+    } else {
+      response = FL_METHOD_RESPONSE(fl_method_error_response_new(
+          "INVALID_ARGUMENTS", "Invalid arguments", nullptr));
+    }
+  } else if (strcmp(method, "unsubscribeFromTopic") == 0) {
+    if (fl_value_get_type(args) == FL_VALUE_TYPE_MAP) {
+      FlValue* topic_value = fl_value_lookup_string(args, "topic");
+      if (topic_value && fl_value_get_type(topic_value) == FL_VALUE_TYPE_STRING) {
+        const gchar* topic = fl_value_get_string(topic_value);
+        unsubscribe_from_topic(topic);
+        g_autoptr(FlValue) result = fl_value_new_bool(TRUE);
+        response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
+      } else {
+        response = FL_METHOD_RESPONSE(fl_method_error_response_new(
+            "INVALID_TOPIC", "topic is required", nullptr));
+      }
+    } else {
+      response = FL_METHOD_RESPONSE(fl_method_error_response_new(
+          "INVALID_ARGUMENTS", "Invalid arguments", nullptr));
+    }
+  } else if (strcmp(method, "getSubscribedTopics") == 0) {
+    g_autoptr(FlValue) list = get_subscribed_topics();
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(list));
   } else {
     response = FL_METHOD_RESPONSE(fl_method_not_implemented_response_new());
   }
@@ -322,6 +377,151 @@ FlMethodResponse* get_platform_version() {
   g_autofree gchar *version = g_strdup_printf("Linux %s", uname_data.version);
   g_autoptr(FlValue) result = fl_value_new_string(version);
   return FL_METHOD_RESPONSE(fl_method_success_response_new(result));
+}
+
+// ── GKeyFile-based persistent storage ────────────────────────────────────────
+// File: ~/.config/notification_master/prefs.ini
+
+static gchar* get_prefs_path() {
+  return g_build_filename(g_get_user_config_dir(),
+                          "notification_master", "prefs.ini", nullptr);
+}
+
+static GKeyFile* load_prefs() {
+  GKeyFile* kf = g_key_file_new();
+  gchar* path = get_prefs_path();
+  g_key_file_load_from_file(kf, path, G_KEY_FILE_NONE, nullptr);
+  g_free(path);
+  return kf;
+}
+
+static void save_prefs(GKeyFile* kf) {
+  gchar* path = get_prefs_path();
+  // Ensure directory exists
+  gchar* dir = g_path_get_dirname(path);
+  g_mkdir_with_parents(dir, 0700);
+  g_free(dir);
+  g_key_file_save_to_file(kf, path, nullptr);
+  g_free(path);
+}
+
+// Returns a heap-allocated string (caller must g_free)
+static gchar* get_device_token() {
+  GKeyFile* kf = load_prefs();
+  gchar* token = g_key_file_get_string(kf, "device", "token", nullptr);
+  g_key_file_free(kf);
+
+  if (token && strlen(token) > 0) {
+    // Local confirmation notification
+    gchar* preview = g_strndup(token, 24);
+    gchar* msg = g_strdup_printf("Token (cached): %s…", preview);
+    show_notification("Device Token (Linux)", msg, "default");
+    g_free(preview);
+    g_free(msg);
+    return token;
+  }
+  g_free(token);
+
+  // Generate a stable ID from /etc/machine-id (standard on systemd distros)
+  gchar* machine_id = nullptr;
+  if (g_file_get_contents("/etc/machine-id", &machine_id, nullptr, nullptr)) {
+    g_strstrip(machine_id);
+    GKeyFile* kf2 = load_prefs();
+    g_key_file_set_string(kf2, "device", "token", machine_id);
+    save_prefs(kf2);
+    g_key_file_free(kf2);
+    gchar* preview = g_strndup(machine_id, 24);
+    gchar* msg = g_strdup_printf("Token (machine-id): %s…", preview);
+    show_notification("Device Token (Linux)", msg, "default");
+    g_free(preview);
+    g_free(msg);
+    return machine_id;
+  }
+
+  // Fallback: hostname
+  const gchar* host = g_get_host_name();
+  gchar* id = g_strdup(host ? host : "linux-device");
+  GKeyFile* kf3 = load_prefs();
+  g_key_file_set_string(kf3, "device", "token", id);
+  save_prefs(kf3);
+  g_key_file_free(kf3);
+  gchar* msg = g_strdup_printf("Token (hostname): %s", id);
+  show_notification("Device Token (Linux)", msg, "default");
+  g_free(msg);
+  return id;
+}
+
+static void subscribe_to_topic(const gchar* topic) {
+  GKeyFile* kf = load_prefs();
+  gsize len = 0;
+  gchar** topics = g_key_file_get_string_list(kf, "topics", "subscribed", &len, nullptr);
+
+  gboolean found = FALSE;
+  for (gsize i = 0; i < len; i++) {
+    if (g_strcmp0(topics[i], topic) == 0) { found = TRUE; break; }
+  }
+
+  if (!found) {
+    gchar** new_topics = g_new(gchar*, len + 2);
+    for (gsize i = 0; i < len; i++) new_topics[i] = topics[i];
+    new_topics[len] = g_strdup(topic);
+    new_topics[len + 1] = nullptr;
+    g_key_file_set_string_list(kf, "topics", "subscribed",
+                               (const gchar* const*)new_topics, len + 1);
+    g_free(new_topics[len]);
+    g_free(new_topics);
+    save_prefs(kf);
+  }
+
+  g_strfreev(topics);
+  g_key_file_free(kf);
+
+  // Local confirmation notification
+  gchar* msg = g_strdup_printf("You are now subscribed to topic: %s", topic);
+  show_notification("Subscribed", msg, "default");
+  g_free(msg);
+}
+
+static void unsubscribe_from_topic(const gchar* topic) {
+  GKeyFile* kf = load_prefs();
+  gsize len = 0;
+  gchar** topics = g_key_file_get_string_list(kf, "topics", "subscribed", &len, nullptr);
+
+  GPtrArray* remaining = g_ptr_array_new();
+  for (gsize i = 0; i < len; i++) {
+    if (g_strcmp0(topics[i], topic) != 0) {
+      g_ptr_array_add(remaining, topics[i]);
+    }
+  }
+
+  g_key_file_set_string_list(kf, "topics", "subscribed",
+                             (const gchar* const*)remaining->pdata,
+                             remaining->len);
+  save_prefs(kf);
+
+  g_ptr_array_free(remaining, FALSE);
+  g_strfreev(topics);
+  g_key_file_free(kf);
+
+  // Local confirmation notification
+  gchar* msg = g_strdup_printf("You have unsubscribed from topic: %s", topic);
+  show_notification("Unsubscribed", msg, "default");
+  g_free(msg);
+}
+
+// Returns a new FlValue list — caller owns it (use g_autoptr)
+static FlValue* get_subscribed_topics() {
+  GKeyFile* kf = load_prefs();
+  gsize len = 0;
+  gchar** topics = g_key_file_get_string_list(kf, "topics", "subscribed", &len, nullptr);
+  g_key_file_free(kf);
+
+  FlValue* list = fl_value_new_list();
+  for (gsize i = 0; i < len; i++) {
+    fl_value_append_take(list, fl_value_new_string(topics[i]));
+  }
+  g_strfreev(topics);
+  return list;
 }
 
 // Function to start polling for notifications

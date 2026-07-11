@@ -172,6 +172,35 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin, UNUserNotificati
       let notificationId = showNotification(title: title, message: message, channelId: channelId, priority: 1, autoCancel: true, id: nil, targetScreen: targetScreen, extraData: extraData)
       result(notificationId)
 
+    // Device token and topic management
+    case "getDeviceToken":
+      getDeviceToken { token in
+        result(token)
+      }
+
+    case "subscribeToTopic":
+      guard let args = call.arguments as? [String: Any],
+            let topic = args["topic"] as? String else {
+        result(FlutterError(code: "INVALID_ARGS", message: "Invalid arguments", details: nil))
+        return
+      }
+      subscribeToTopic(topic) { success in
+        result(success)
+      }
+
+    case "unsubscribeFromTopic":
+      guard let args = call.arguments as? [String: Any],
+            let topic = args["topic"] as? String else {
+        result(FlutterError(code: "INVALID_ARGS", message: "Invalid arguments", details: nil))
+        return
+      }
+      unsubscribeFromTopic(topic) { success in
+        result(success)
+      }
+
+    case "getSubscribedTopics":
+      result(getSubscribedTopics())
+
     // Notification channels
     case "createCustomChannel":
       // iOS doesn't have channels like Android, but we'll store the settings
@@ -449,6 +478,77 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin, UNUserNotificati
       }
     }
     task.resume()
+  }
+
+  // MARK: - Device Token & Topic Management
+
+  /// Post a local UNUserNotification as confirmation of token/topic operations.
+  private func postConfirmationNotification(title: String, body: String) {
+    let content = UNMutableNotificationContent()
+    content.title = title
+    content.body = body
+    content.sound = .default
+    let request = UNNotificationRequest(
+      identifier: "nm_confirm_\(UUID().uuidString)",
+      content: content,
+      trigger: nil          // deliver immediately
+    )
+    UNUserNotificationCenter.current().add(request) { error in
+      if let error = error {
+        print("[NotificationMaster] Confirmation notification error: \(error)")
+      }
+    }
+  }
+
+  private func getDeviceToken(completion: @escaping (String?) -> Void) {
+    // Try APNS token stored by the app (set via setAPNSToken from AppDelegate)
+    if let apnsData = UserDefaults.standard.data(forKey: "apns_token") {
+      let tokenString = apnsData.map { String(format: "%02.2hhx", $0) }.joined()
+      postConfirmationNotification(
+        title: "Device Token (APNS)",
+        body: "Token: \(String(tokenString.prefix(24)))…"
+      )
+      completion(tokenString)
+      return
+    }
+
+    // Fallback: identifierForVendor
+    let deviceId = UIDevice.current.identifierForVendor?.uuidString
+    postConfirmationNotification(
+      title: "Device Token (Vendor ID)",
+      body: "Token: \(String((deviceId ?? "").prefix(24)))…"
+    )
+    completion(deviceId)
+  }
+
+  private func subscribeToTopic(_ topic: String, completion: @escaping (Bool) -> Void) {
+    var topics = UserDefaults.standard.stringArray(forKey: "subscribed_topics") ?? []
+    if !topics.contains(topic) {
+      topics.append(topic)
+      UserDefaults.standard.set(topics, forKey: "subscribed_topics")
+    }
+    postConfirmationNotification(
+      title: "Subscribed",
+      body: "You are now subscribed to topic: \(topic)"
+    )
+    print("[NotificationMaster] Subscribed to topic: \(topic)")
+    completion(true)
+  }
+
+  private func unsubscribeFromTopic(_ topic: String, completion: @escaping (Bool) -> Void) {
+    var topics = UserDefaults.standard.stringArray(forKey: "subscribed_topics") ?? []
+    topics.removeAll { $0 == topic }
+    UserDefaults.standard.set(topics, forKey: "subscribed_topics")
+    postConfirmationNotification(
+      title: "Unsubscribed",
+      body: "You have unsubscribed from topic: \(topic)"
+    )
+    print("[NotificationMaster] Unsubscribed from topic: \(topic)")
+    completion(true)
+  }
+
+  private func getSubscribedTopics() -> [String] {
+    return UserDefaults.standard.stringArray(forKey: "subscribed_topics") ?? []
   }
 
   // MARK: - Notification Polling

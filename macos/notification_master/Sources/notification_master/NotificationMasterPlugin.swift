@@ -47,6 +47,30 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin {
       setFirebaseAsActiveService(result: result)
     case "getActiveNotificationService":
       getActiveNotificationService(result: result)
+    case "showHeadsUpNotification":
+      showNotification(call: call, result: result)
+    case "showFullScreenNotification":
+      showNotification(call: call, result: result)
+    case "showStyledNotification":
+      showNotification(call: call, result: result)
+    case "getDeviceToken":
+      getDeviceToken(result: result)
+    case "subscribeToTopic":
+      guard let args = call.arguments as? [String: Any],
+            let topic = args["topic"] as? String else {
+        result(FlutterError(code: "INVALID_ARGS", message: "topic is required", details: nil))
+        return
+      }
+      subscribeToTopic(topic, result: result)
+    case "unsubscribeFromTopic":
+      guard let args = call.arguments as? [String: Any],
+            let topic = args["topic"] as? String else {
+        result(FlutterError(code: "INVALID_ARGS", message: "topic is required", details: nil))
+        return
+      }
+      unsubscribeFromTopic(topic, result: result)
+    case "getSubscribedTopics":
+      getSubscribedTopics(result: result)
     default:
       result(FlutterMethodNotImplemented)
     }
@@ -233,6 +257,65 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin {
     default: s = "none"
     }
     result(s)
+  }
+
+  // MARK: - Device Token & Topic Management
+
+  /// Post an immediate local notification as confirmation of token/topic operations.
+  private func postConfirmationNotification(title: String, body: String) {
+    let content = UNMutableNotificationContent()
+    content.title = title
+    content.body = body
+    content.sound = .default
+    let request = UNNotificationRequest(
+      identifier: "nm_confirm_\(UUID().uuidString)",
+      content: content,
+      trigger: nil
+    )
+    UNUserNotificationCenter.current().add(request) { error in
+      if let error = error {
+        print("[NotificationMaster] Confirmation notification error: \(error)")
+      }
+    }
+  }
+
+  private func getDeviceToken(result: @escaping FlutterResult) {
+    let hostName = ProcessInfo.processInfo.hostName
+    let token = hostName.isEmpty ? nil : hostName
+    postConfirmationNotification(
+      title: "Device Token (macOS)",
+      body: "Token: \(String((token ?? "").prefix(32)))…"
+    )
+    result(token)
+  }
+
+  private func subscribeToTopic(_ topic: String, result: @escaping FlutterResult) {
+    var topics = UserDefaults.standard.stringArray(forKey: "subscribed_topics") ?? []
+    if !topics.contains(topic) {
+      topics.append(topic)
+      UserDefaults.standard.set(topics, forKey: "subscribed_topics")
+    }
+    postConfirmationNotification(
+      title: "Subscribed",
+      body: "You are now subscribed to topic: \(topic)"
+    )
+    result(true)
+  }
+
+  private func unsubscribeFromTopic(_ topic: String, result: @escaping FlutterResult) {
+    var topics = UserDefaults.standard.stringArray(forKey: "subscribed_topics") ?? []
+    topics.removeAll { $0 == topic }
+    UserDefaults.standard.set(topics, forKey: "subscribed_topics")
+    postConfirmationNotification(
+      title: "Unsubscribed",
+      body: "You have unsubscribed from topic: \(topic)"
+    )
+    result(true)
+  }
+
+  private func getSubscribedTopics(result: @escaping FlutterResult) {
+    let topics = UserDefaults.standard.stringArray(forKey: "subscribed_topics") ?? []
+    result(topics)
   }
 
   private func scheduleBackgroundPolling(intervalMinutes: Int) {

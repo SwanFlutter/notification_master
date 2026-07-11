@@ -10,6 +10,9 @@
 #include <thread>
 #include <atomic>
 #include <mutex>
+#include <algorithm>
+#include <sstream>
+#include <vector>
 
 namespace notification_master {
 
@@ -89,6 +92,18 @@ class NotificationMasterPlugin : public flutter::Plugin {
   
   // Image download helper
   std::wstring DownloadImageToTempFile(const std::wstring& imageUrl);
+
+  // Device token & topic management
+  void GetDeviceToken(
+      std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result);
+  void SubscribeToTopic(
+      const std::string& topic,
+      std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result);
+  void UnsubscribeFromTopic(
+      const std::string& topic,
+      std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result);
+  void GetSubscribedTopics(
+      std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result);
 
   std::thread polling_thread_;
   std::atomic<bool> polling_active_{false};

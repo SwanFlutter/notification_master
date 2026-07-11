@@ -111,6 +111,9 @@ bool NotificationMasterPlugin::InitializeWinToast() {
         return false;
     }
 
+    // Suppress WinToast debug output (shell link / AUMI log messages)
+    WinToastLib::setDebugOutputEnabled(false);
+
     // Configure WinToast
     WinToast::instance()->setAppName(L"Notification Master");
     const auto aumi = WinToast::configureAUMI(L"NotificationMaster", L"NotificationMaster", L"NotificationMaster", L"1.0.0");
@@ -551,14 +554,27 @@ void NotificationMasterPlugin::HandleMethodCall(
     std::string service = polling_active_ ? "polling" : "none";
     result->Success(flutter::EncodableValue(service));
   } else if (method_name == "showStyledNotification") {
-    // Windows styled notification (similar to Android styled)
     ShowStyledNotification(method_call, std::move(result));
   } else if (method_name == "showHeadsUpNotification") {
-    // Windows heads-up notification (using Alarm scenario)
     ShowHeadsUpNotification(method_call, std::move(result));
   } else if (method_name == "showFullScreenNotification") {
-    // Windows full screen notification (using IncomingCall scenario)
     ShowFullScreenNotification(method_call, std::move(result));
+  } else if (method_name == "getDeviceToken") {
+    GetDeviceToken(std::move(result));
+  } else if (method_name == "subscribeToTopic") {
+    const auto* arguments = std::get_if<flutter::EncodableMap>(method_call.arguments());
+    if (!arguments) { result->Error("INVALID_ARGUMENT", "Invalid arguments"); return; }
+    std::string topic = GetStringValue(flutter::EncodableValue(*arguments), "topic", "");
+    if (topic.empty()) { result->Error("INVALID_TOPIC", "topic is required"); return; }
+    SubscribeToTopic(topic, std::move(result));
+  } else if (method_name == "unsubscribeFromTopic") {
+    const auto* arguments = std::get_if<flutter::EncodableMap>(method_call.arguments());
+    if (!arguments) { result->Error("INVALID_ARGUMENT", "Invalid arguments"); return; }
+    std::string topic = GetStringValue(flutter::EncodableValue(*arguments), "topic", "");
+    if (topic.empty()) { result->Error("INVALID_TOPIC", "topic is required"); return; }
+    UnsubscribeFromTopic(topic, std::move(result));
+  } else if (method_name == "getSubscribedTopics") {
+    GetSubscribedTopics(std::move(result));
   } else {
     result->NotImplemented();
   }
@@ -1207,6 +1223,186 @@ void NotificationMasterPlugin::ShowFullScreenNotification(
     }
 
     result->Success(flutter::EncodableValue(notificationId));
+}
+
+// ── Registry key used for all plugin preferences ──────────────────────────────
+static const wchar_t* kRegistryPath =
+    L"SOFTWARE\\NotificationMaster\\notification_master";
+
+static std::wstring ReadRegistryString(const std::wstring& name) {
+  HKEY hKey = nullptr;
+  if (RegOpenKeyExW(HKEY_CURRENT_USER, kRegistryPath, 0, KEY_READ, &hKey) != ERROR_SUCCESS)
+    return L"";
+  DWORD type = REG_SZ, size = 0;
+  if (RegQueryValueExW(hKey, name.c_str(), nullptr, &type, nullptr, &size) != ERROR_SUCCESS ||
+      type != REG_SZ || size == 0) {
+    RegCloseKey(hKey);
+    return L"";
+  }
+  std::wstring value(size / sizeof(wchar_t), L'\0');
+  RegQueryValueExW(hKey, name.c_str(), nullptr, &type,
+                   reinterpret_cast<LPBYTE>(&value[0]), &size);
+  RegCloseKey(hKey);
+  // Remove possible null terminator stored by RegSetValueEx
+  if (!value.empty() && value.back() == L'\0') value.pop_back();
+  return value;
+}
+
+static void WriteRegistryString(const std::wstring& name, const std::wstring& value) {
+  HKEY hKey = nullptr;
+  RegCreateKeyExW(HKEY_CURRENT_USER, kRegistryPath, 0, nullptr,
+                  REG_OPTION_NON_VOLATILE, KEY_WRITE, nullptr, &hKey, nullptr);
+  if (!hKey) return;
+  RegSetValueExW(hKey, name.c_str(), 0, REG_SZ,
+                 reinterpret_cast<const BYTE*>(value.c_str()),
+                 static_cast<DWORD>((value.size() + 1) * sizeof(wchar_t)));
+  RegCloseKey(hKey);
+}
+
+// Topics are stored as a semicolon-separated wstring: "news;offers;alerts"
+static std::vector<std::wstring> ReadTopics() {
+  std::wstring raw = ReadRegistryString(L"subscribed_topics");
+  std::vector<std::wstring> topics;
+  if (raw.empty()) return topics;
+  std::wstringstream ss(raw);
+  std::wstring token;
+  while (std::getline(ss, token, L';')) {
+    if (!token.empty()) topics.push_back(token);
+  }
+  return topics;
+}
+
+static void WriteTopics(const std::vector<std::wstring>& topics) {
+  std::wstring joined;
+  for (size_t i = 0; i < topics.size(); ++i) {
+    if (i > 0) joined += L';';
+    joined += topics[i];
+  }
+  WriteRegistryString(L"subscribed_topics", joined);
+}
+
+void NotificationMasterPlugin::GetDeviceToken(
+    std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
+
+  auto showTokenConfirmation = [this](const std::string& token, const std::string& source) {
+    if (InitializeWinToast()) {
+      WinToastTemplate tmpl(WinToastTemplate::Text02);
+      std::string preview = token.size() > 24 ? token.substr(0, 24) + "..." : token;
+      std::string body = source + ": " + preview;
+      tmpl.setTextField(L"Device Token (Windows)", WinToastTemplate::FirstLine);
+      tmpl.setTextField(StringToWString(body), WinToastTemplate::SecondLine);
+      WinToast::WinToastError err;
+      WinToast::instance()->showToast(
+        tmpl,
+        new WinToastHandler(0, [](int){}, []{}, []{}),
+        &err
+      );
+    }
+  };
+
+  // Check for a previously stored token
+  std::wstring stored = ReadRegistryString(L"device_token");
+  if (!stored.empty()) {
+    int sz = WideCharToMultiByte(CP_UTF8, 0, stored.c_str(), -1, nullptr, 0, nullptr, nullptr);
+    std::string token(sz - 1, '\0');
+    WideCharToMultiByte(CP_UTF8, 0, stored.c_str(), -1, &token[0], sz, nullptr, nullptr);
+    showTokenConfirmation(token, "Cached token");
+    result->Success(flutter::EncodableValue(token));
+    return;
+  }
+
+  // Generate a stable ID from the machine GUID stored in the Windows registry
+  HKEY hKey = nullptr;
+  std::wstring guid;
+  if (RegOpenKeyExW(HKEY_LOCAL_MACHINE,
+                    L"SOFTWARE\\Microsoft\\Cryptography",
+                    0, KEY_READ | KEY_WOW64_64KEY, &hKey) == ERROR_SUCCESS) {
+    DWORD type = REG_SZ, size = 0;
+    RegQueryValueExW(hKey, L"MachineGuid", nullptr, &type, nullptr, &size);
+    if (size > 0) {
+      guid.resize(size / sizeof(wchar_t), L'\0');
+      RegQueryValueExW(hKey, L"MachineGuid", nullptr, &type,
+                       reinterpret_cast<LPBYTE>(&guid[0]), &size);
+      if (!guid.empty() && guid.back() == L'\0') guid.pop_back();
+    }
+    RegCloseKey(hKey);
+  }
+
+  if (guid.empty()) {
+    wchar_t name[MAX_COMPUTERNAME_LENGTH + 1] = {};
+    DWORD len = MAX_COMPUTERNAME_LENGTH + 1;
+    GetComputerNameW(name, &len);
+    guid = name;
+  }
+
+  WriteRegistryString(L"device_token", guid);
+
+  int sz = WideCharToMultiByte(CP_UTF8, 0, guid.c_str(), -1, nullptr, 0, nullptr, nullptr);
+  std::string token(sz - 1, '\0');
+  WideCharToMultiByte(CP_UTF8, 0, guid.c_str(), -1, &token[0], sz, nullptr, nullptr);
+  showTokenConfirmation(token, "MachineGuid");
+  result->Success(flutter::EncodableValue(token));
+}
+
+void NotificationMasterPlugin::SubscribeToTopic(
+    const std::string& topic,
+    std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
+  std::wstring wTopic = StringToWString(topic);
+  auto topics = ReadTopics();
+  if (std::find(topics.begin(), topics.end(), wTopic) == topics.end()) {
+    topics.push_back(wTopic);
+    WriteTopics(topics);
+  }
+  // Local confirmation notification
+  if (InitializeWinToast()) {
+    WinToastTemplate tmpl(WinToastTemplate::Text02);
+    tmpl.setTextField(L"Subscribed", WinToastTemplate::FirstLine);
+    tmpl.setTextField(StringToWString("You are now subscribed to topic: " + topic),
+                      WinToastTemplate::SecondLine);
+    WinToast::WinToastError err;
+    WinToast::instance()->showToast(
+      tmpl,
+      new WinToastHandler(0, [](int){}, []{}, []{}),
+      &err
+    );
+  }
+  result->Success(flutter::EncodableValue(true));
+}
+
+void NotificationMasterPlugin::UnsubscribeFromTopic(
+    const std::string& topic,
+    std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
+  std::wstring wTopic = StringToWString(topic);
+  auto topics = ReadTopics();
+  topics.erase(std::remove(topics.begin(), topics.end(), wTopic), topics.end());
+  WriteTopics(topics);
+  // Local confirmation notification
+  if (InitializeWinToast()) {
+    WinToastTemplate tmpl(WinToastTemplate::Text02);
+    tmpl.setTextField(L"Unsubscribed", WinToastTemplate::FirstLine);
+    tmpl.setTextField(StringToWString("You have unsubscribed from topic: " + topic),
+                      WinToastTemplate::SecondLine);
+    WinToast::WinToastError err;
+    WinToast::instance()->showToast(
+      tmpl,
+      new WinToastHandler(0, [](int){}, []{}, []{}),
+      &err
+    );
+  }
+  result->Success(flutter::EncodableValue(true));
+}
+
+void NotificationMasterPlugin::GetSubscribedTopics(
+    std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
+  auto wTopics = ReadTopics();
+  flutter::EncodableList list;
+  for (const auto& wt : wTopics) {
+    int size = WideCharToMultiByte(CP_UTF8, 0, wt.c_str(), -1, nullptr, 0, nullptr, nullptr);
+    std::string t(size - 1, '\0');
+    WideCharToMultiByte(CP_UTF8, 0, wt.c_str(), -1, &t[0], size, nullptr, nullptr);
+    list.push_back(flutter::EncodableValue(t));
+  }
+  result->Success(flutter::EncodableValue(list));
 }
 
 }  // namespace notification_master

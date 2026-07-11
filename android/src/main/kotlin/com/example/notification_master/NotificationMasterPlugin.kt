@@ -41,6 +41,7 @@ class NotificationMasterPlugin: FlutterPlugin, MethodCallHandler, ActivityAware,
     const val PREF_POLLING_URL = "polling_url"
     const val PREF_POLLING_INTERVAL_MINUTES = "polling_interval_minutes"
     const val PREF_ACTIVE_NOTIFICATION_SERVICE = "active_notification_service"
+    const val PREF_SUBSCRIBED_TOPICS = "subscribed_topics"
     const val DEFAULT_POLLING_INTERVAL_MINUTES = 15
   }
 
@@ -227,6 +228,28 @@ class NotificationMasterPlugin: FlutterPlugin, MethodCallHandler, ActivityAware,
         val extraData = call.argument<Map<String, Any>>("extraData")
 
         showStyledNotification(title, message, channelId, targetScreen, extraData, result)
+      }
+      "getDeviceToken" -> {
+        getDeviceToken(result)
+      }
+      "subscribeToTopic" -> {
+        val topic = call.argument<String>("topic")
+        if (topic.isNullOrEmpty()) {
+          result.error("INVALID_TOPIC", "Topic cannot be null or empty", null)
+        } else {
+          subscribeToTopic(topic, result)
+        }
+      }
+      "unsubscribeFromTopic" -> {
+        val topic = call.argument<String>("topic")
+        if (topic.isNullOrEmpty()) {
+          result.error("INVALID_TOPIC", "Topic cannot be null or empty", null)
+        } else {
+          unsubscribeFromTopic(topic, result)
+        }
+      }
+      "getSubscribedTopics" -> {
+        getSubscribedTopics(result)
       }
       else -> {
         result.notImplemented()
@@ -799,6 +822,227 @@ class NotificationMasterPlugin: FlutterPlugin, MethodCallHandler, ActivityAware,
         putExtra("extra_data", extraData.toString())
       }
     }
+  }
+
+  // ── helper: show a local confirmation notification ───────────────────────
+  private fun showConfirmationNotification(title: String, message: String) {
+    try {
+      val helper = NotificationHelper(context)
+      helper.showNotification(
+        title = title,
+        message = message,
+        channelId = NotificationHelper.DEFAULT_CHANNEL_ID,
+        contentIntent = null,
+        priority = androidx.core.app.NotificationCompat.PRIORITY_DEFAULT,
+        autoCancel = true
+      )
+    } catch (e: Exception) {
+      Log.w(TAG, "Could not show confirmation notification: ${e.message}")
+    }
+  }
+
+  /**
+   * Get the device token for push notifications.
+   * Tries Firebase Messaging first, falls back to ANDROID_ID.
+   * On success shows a local notification with the token source.
+   */
+  private fun getDeviceToken(result: Result) {
+    try {
+      val firebaseMessagingClass = Class.forName("com.google.firebase.messaging.FirebaseMessaging")
+      val getInstance = firebaseMessagingClass.getMethod("getInstance")
+      val messaging = getInstance.invoke(null)
+      val getToken = messaging.javaClass.getMethod("getToken")
+      val task = getToken.invoke(messaging)
+
+      val addOnCompleteListener = task.javaClass.getMethod(
+        "addOnCompleteListener",
+        Class.forName("com.google.android.gms.tasks.OnCompleteListener")
+      )
+      val listenerProxy = java.lang.reflect.Proxy.newProxyInstance(
+        Class.forName("com.google.android.gms.tasks.OnCompleteListener").classLoader,
+        arrayOf(Class.forName("com.google.android.gms.tasks.OnCompleteListener"))
+      ) { _, method, args ->
+        if (method.name == "onComplete") {
+          val token = args[0]?.javaClass?.getMethod("getResult")?.invoke(args[0])
+          val exception = args[0]?.javaClass?.getMethod("getException")?.invoke(args[0])
+          if (exception == null) {
+            val tokenStr = token as? String
+            showConfirmationNotification(
+              "Device Token (FCM)",
+              "Token: ${tokenStr?.take(24)}…"
+            )
+            result.success(tokenStr)
+          } else {
+            result.error("TOKEN_ERROR", "Failed to get FCM token: $exception", null)
+          }
+        }
+        null
+      }
+      addOnCompleteListener.invoke(task, listenerProxy)
+
+    } catch (e: ClassNotFoundException) {
+      val deviceId = android.provider.Settings.Secure.getString(
+        context.contentResolver, android.provider.Settings.Secure.ANDROID_ID
+      )
+      showConfirmationNotification(
+        "Device Token (Android ID)",
+        "Token: ${deviceId.take(24)}…"
+      )
+      result.success(deviceId)
+    } catch (e: Exception) {
+      Log.e(TAG, "Error getting device token", e)
+      val deviceId = android.provider.Settings.Secure.getString(
+        context.contentResolver, android.provider.Settings.Secure.ANDROID_ID
+      )
+      showConfirmationNotification(
+        "Device Token (Fallback)",
+        "Token: ${deviceId.take(24)}…"
+      )
+      result.success(deviceId)
+    }
+  }
+
+  /**
+   * Subscribe to a Firebase Cloud Messaging topic.
+   * On success shows a local notification confirming the subscription.
+   */
+  private fun subscribeToTopic(topic: String, result: Result) {
+    try {
+      val firebaseMessagingClass = Class.forName("com.google.firebase.messaging.FirebaseMessaging")
+      val getInstance = firebaseMessagingClass.getMethod("getInstance")
+      val messaging = getInstance.invoke(null)
+      val subscribeToTopic = messaging.javaClass.getMethod("subscribeToTopic", String::class.java)
+      val task = subscribeToTopic.invoke(messaging, topic)
+
+      val addOnCompleteListener = task.javaClass.getMethod(
+        "addOnCompleteListener",
+        Class.forName("com.google.android.gms.tasks.OnCompleteListener")
+      )
+      val listenerProxy = java.lang.reflect.Proxy.newProxyInstance(
+        Class.forName("com.google.android.gms.tasks.OnCompleteListener").classLoader,
+        arrayOf(Class.forName("com.google.android.gms.tasks.OnCompleteListener"))
+      ) { _, method, args ->
+        if (method.name == "onComplete") {
+          val exception = args[0]?.javaClass?.getMethod("getException")?.invoke(args[0])
+          if (exception == null) {
+            saveTopicLocally(topic)
+            showConfirmationNotification(
+              "Subscribed (FCM)",
+              "You are now subscribed to topic: $topic"
+            )
+            Log.d(TAG, "Subscribed to FCM topic: $topic")
+            result.success(true)
+          } else {
+            result.error("SUBSCRIBE_ERROR", "Failed to subscribe: $exception", null)
+          }
+        }
+        null
+      }
+      addOnCompleteListener.invoke(task, listenerProxy)
+
+    } catch (e: ClassNotFoundException) {
+      saveTopicLocally(topic)
+      showConfirmationNotification(
+        "Subscribed (Local)",
+        "Subscribed to topic: $topic (Firebase not available)"
+      )
+      result.success(true)
+    } catch (e: Exception) {
+      Log.e(TAG, "Error subscribing to topic", e)
+      saveTopicLocally(topic)
+      showConfirmationNotification(
+        "Subscribed (Local)",
+        "Subscribed to topic: $topic"
+      )
+      result.success(true)
+    }
+  }
+
+  /**
+   * Unsubscribe from a Firebase Cloud Messaging topic.
+   * On success shows a local notification confirming the removal.
+   */
+  private fun unsubscribeFromTopic(topic: String, result: Result) {
+    try {
+      val firebaseMessagingClass = Class.forName("com.google.firebase.messaging.FirebaseMessaging")
+      val getInstance = firebaseMessagingClass.getMethod("getInstance")
+      val messaging = getInstance.invoke(null)
+      val unsubscribeFromTopic = messaging.javaClass.getMethod("unsubscribeFromTopic", String::class.java)
+      val task = unsubscribeFromTopic.invoke(messaging, topic)
+
+      val addOnCompleteListener = task.javaClass.getMethod(
+        "addOnCompleteListener",
+        Class.forName("com.google.android.gms.tasks.OnCompleteListener")
+      )
+      val listenerProxy = java.lang.reflect.Proxy.newProxyInstance(
+        Class.forName("com.google.android.gms.tasks.OnCompleteListener").classLoader,
+        arrayOf(Class.forName("com.google.android.gms.tasks.OnCompleteListener"))
+      ) { _, method, args ->
+        if (method.name == "onComplete") {
+          val exception = args[0]?.javaClass?.getMethod("getException")?.invoke(args[0])
+          if (exception == null) {
+            removeTopicLocally(topic)
+            showConfirmationNotification(
+              "Unsubscribed (FCM)",
+              "You have unsubscribed from topic: $topic"
+            )
+            Log.d(TAG, "Unsubscribed from FCM topic: $topic")
+            result.success(true)
+          } else {
+            result.error("UNSUBSCRIBE_ERROR", "Failed to unsubscribe: $exception", null)
+          }
+        }
+        null
+      }
+      addOnCompleteListener.invoke(task, listenerProxy)
+
+    } catch (e: ClassNotFoundException) {
+      removeTopicLocally(topic)
+      showConfirmationNotification(
+        "Unsubscribed (Local)",
+        "Unsubscribed from topic: $topic (Firebase not available)"
+      )
+      result.success(true)
+    } catch (e: Exception) {
+      Log.e(TAG, "Error unsubscribing from topic", e)
+      removeTopicLocally(topic)
+      showConfirmationNotification(
+        "Unsubscribed (Local)",
+        "Unsubscribed from topic: $topic"
+      )
+      result.success(true)
+    }
+  }
+
+  /**
+   * Get the list of locally subscribed topics.
+   * This reflects Firebase subscriptions (when available) and local fallback subscriptions.
+   */
+  private fun getSubscribedTopics(result: Result) {
+    try {
+      val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      val topicsSet = prefs.getStringSet(PREF_SUBSCRIBED_TOPICS, emptySet()) ?: emptySet()
+      result.success(topicsSet.toList())
+    } catch (e: Exception) {
+      Log.e(TAG, "Error getting subscribed topics", e)
+      result.error("TOPICS_ERROR", e.message, null)
+    }
+  }
+
+  /** Persist a topic subscription in SharedPreferences. */
+  private fun saveTopicLocally(topic: String) {
+    val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    val topics = prefs.getStringSet(PREF_SUBSCRIBED_TOPICS, mutableSetOf())?.toMutableSet() ?: mutableSetOf()
+    topics.add(topic)
+    prefs.edit().putStringSet(PREF_SUBSCRIBED_TOPICS, topics).apply()
+  }
+
+  /** Remove a topic subscription from SharedPreferences. */
+  private fun removeTopicLocally(topic: String) {
+    val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    val topics = prefs.getStringSet(PREF_SUBSCRIBED_TOPICS, mutableSetOf())?.toMutableSet() ?: mutableSetOf()
+    topics.remove(topic)
+    prefs.edit().putStringSet(PREF_SUBSCRIBED_TOPICS, topics).apply()
   }
 
   override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {

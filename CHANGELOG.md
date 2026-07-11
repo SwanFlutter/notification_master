@@ -2,6 +2,23 @@
 
 ---
 
+## 0.0.7
+
+* **All platforms**: Added three new methods for push notification identity management:
+  - `getDeviceToken()` — returns FCM token (Android/iOS with Firebase), APNS token, or stable device ID fallback. After retrieval a local notification confirms the token source.
+  - `subscribeToTopic(String topic)` — subscribes via FCM when Firebase is present; stores locally otherwise. Shows a local confirmation notification.
+  - `unsubscribeFromTopic(String topic)` — unsubscribes via FCM or removes local record. Shows a local confirmation notification.
+  - `getSubscribedTopics()` — returns the current topic list (mirrors FCM subscriptions + local cache).
+* **Android**: `subscribeToTopic`/`unsubscribeFromTopic` no longer throw `FIREBASE_NOT_AVAILABLE`; they fall back to `SharedPreferences` storage when Firebase is absent.
+* **Android**: Confirmation notifications shown via `NotificationHelper` after each token/topic operation.
+* **iOS / macOS**: Confirmation notifications shown via `UNUserNotificationCenter` (immediate trigger) after each token/topic operation.
+* **Windows**: Confirmation notifications shown via `WinToast` after each token/topic operation. Fixed debug log spam (shell link / AUMI messages) by calling `WinToastLib::setDebugOutputEnabled(false)` on init.
+* **Linux**: Confirmation notifications shown via `show_notification` (libnotify) after each token/topic operation. Topic storage uses `GKeyFile` at `~/.config/notification_master/prefs.ini`.
+* **Web**: Confirmation notifications shown via browser `Notification` API after each token/topic operation. Token and topics persisted in `localStorage`.
+* **example**: `token_topic_page.dart` fully rewritten — fine-grained loading per section, source badge on token, collapsible server code snippet, topics loaded from `getSubscribedTopics()` on init.
+
+---
+
 ## 0.0.6
 
 * **Android**: Removed permissions from plugin's `AndroidManifest.xml` — permissions must now be declared by the app developer (see README). Added proper component declarations: `NotificationForegroundService` (with `foregroundServiceType="dataSync"`), `BootCompletedReceiver` (with `BOOT_COMPLETED` + `MY_PACKAGE_REPLACED`), and `NotificationReceiver`.

@@ -292,4 +292,36 @@ class NotificationMaster {
       extraData: extraData,
     );
   }
+
+  /// Get the device token for push notifications.
+  /// Returns the FCM token on Android, APNS token on iOS, or null if unavailable.
+  Future<String?> getDeviceToken() {
+    return NotificationMasterPlatform.instance.getDeviceToken();
+  }
+
+  /// Subscribe to a notification topic.
+  /// On Android/iOS with Firebase, this subscribes to an FCM topic.
+  Future<bool> subscribeToTopic(String topic) {
+    return NotificationMasterPlatform.instance.subscribeToTopic(topic);
+  }
+
+  /// Unsubscribe from a notification topic.
+  Future<bool> unsubscribeFromTopic(String topic) {
+    return NotificationMasterPlatform.instance.unsubscribeFromTopic(topic);
+  }
+
+  /// Returns the list of topics this device is currently subscribed to.
+  ///
+  /// With Firebase: reflects actual FCM topic subscriptions (also cached locally).
+  /// Without Firebase: reflects locally stored subscriptions only — use the
+  /// returned list alongside [getDeviceToken] to manage topic targeting server-side.
+  ///
+  /// ```dart
+  /// final token = await notificationMaster.getDeviceToken();
+  /// final topics = await notificationMaster.getSubscribedTopics();
+  /// // Send token + topics to your server so it can send targeted push notifications.
+  /// ```
+  Future<List<String>> getSubscribedTopics() {
+    return NotificationMasterPlatform.instance.getSubscribedTopics();
+  }
 }

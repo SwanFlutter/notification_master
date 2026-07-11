@@ -297,4 +297,99 @@ class NotificationMasterWeb extends NotificationMasterPlatform {
       return false;
     }
   }
+
+  // ── Device token & topic management ──────────────────────────────────────
+
+  /// Shows a browser Notification as local confirmation (best-effort).
+  void _showBrowserConfirmation(String title, String body) {
+    try {
+      if (_isNotificationSupported() && web.Notification.permission == 'granted') {
+        web.Notification(title, web.NotificationOptions(body: body));
+      }
+    } catch (_) {
+      // Non-critical — ignore silently
+    }
+  }
+
+  /// Returns a stable pseudo-token from localStorage; generates one on first call.
+  @override
+  Future<String?> getDeviceToken() async {
+    try {
+      const key = 'notification_master_device_token';
+      final stored = web.window.localStorage.getItem(key);
+      final token = (stored != null && stored.isNotEmpty) ? stored : _generateUUID();
+      if (stored == null || stored.isEmpty) {
+        web.window.localStorage.setItem(key, token);
+      }
+      _showBrowserConfirmation(
+        'Device Token (Web)',
+        'Token: ${token.length > 24 ? '${token.substring(0, 24)}…' : token}',
+      );
+      return token;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Subscribes to a topic by persisting it in localStorage and shows a notification.
+  @override
+  Future<bool> subscribeToTopic(String topic) async {
+    try {
+      final topics = await getSubscribedTopics();
+      if (!topics.contains(topic)) {
+        topics.add(topic);
+        _saveTopics(topics);
+      }
+      _showBrowserConfirmation(
+        'Subscribed',
+        'You are now subscribed to topic: $topic',
+      );
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Unsubscribes from a topic and shows a confirmation notification.
+  @override
+  Future<bool> unsubscribeFromTopic(String topic) async {
+    try {
+      final topics = await getSubscribedTopics();
+      topics.remove(topic);
+      _saveTopics(topics);
+      _showBrowserConfirmation(
+        'Unsubscribed',
+        'You have unsubscribed from topic: $topic',
+      );
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Returns the list of topics stored in localStorage.
+  @override
+  Future<List<String>> getSubscribedTopics() async {
+    try {
+      const key = 'notification_master_subscribed_topics';
+      final raw = web.window.localStorage.getItem(key);
+      if (raw == null || raw.isEmpty) return [];
+      return raw.split(',').where((t) => t.isNotEmpty).toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  void _saveTopics(List<String> topics) {
+    const key = 'notification_master_subscribed_topics';
+    web.window.localStorage.setItem(key, topics.join(','));
+  }
+
+  /// Generates a random UUID-like token without external dependencies.
+  String _generateUUID() {
+    final ts = DateTime.now().microsecondsSinceEpoch;
+    final part1 = ts.toRadixString(16).padLeft(12, '0');
+    final part2 = ts.hashCode.toRadixString(16).padLeft(8, '0');
+    return '$part1-$part2-4web-notification-master';
+  }
 }

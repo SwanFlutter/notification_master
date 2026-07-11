@@ -183,4 +183,27 @@ abstract class NotificationMasterPlatform extends PlatformInterface {
       'showStyledNotification() has not been implemented.',
     );
   }
+
+  Future<String?> getDeviceToken() {
+    throw UnimplementedError('getDeviceToken() has not been implemented.');
+  }
+
+  Future<bool> subscribeToTopic(String topic) {
+    throw UnimplementedError('subscribeToTopic() has not been implemented.');
+  }
+
+  Future<bool> unsubscribeFromTopic(String topic) {
+    throw UnimplementedError(
+      'unsubscribeFromTopic() has not been implemented.',
+    );
+  }
+
+  /// Returns the list of topics the device is currently subscribed to.
+  /// On Android/iOS with Firebase this reflects both FCM and local subscriptions.
+  /// Without Firebase, it reflects locally stored subscriptions only.
+  Future<List<String>> getSubscribedTopics() {
+    throw UnimplementedError(
+      'getSubscribedTopics() has not been implemented.',
+    );
+  }
 }
