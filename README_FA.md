@@ -21,7 +21,7 @@
 
 ```yaml
 dependencies:
-  notification_master: ^0.0.5
+  notification_master: ^0.0.7
 ```
 
 ```bash
@@ -66,17 +66,51 @@ flutter pub get
 
 ### 🍎 iOS
 
-در فایل `ios/Runner/Info.plist` اضافه کنید:
+#### ۱. Podfile
+
+مطمئن شوید `ios/Podfile` با این خط شروع می‌شود:
+
+```ruby
+platform :ios, '14.0'
+```
+
+بعد از تغییر اجرا کنید:
+
+```bash
+cd ios
+pod install
+cd ..
+```
+
+#### ۲. Info.plist
+
+در فایل `ios/Runner/Info.plist` داخل تگ `<dict>` اضافه کنید:
 
 ```xml
+<!-- حالت‌های اجرا در پس‌زمینه -->
 <key>UIBackgroundModes</key>
 <array>
     <string>fetch</string>
     <string>remote-notification</string>
+    <string>processing</string>
 </array>
+
+<!-- شناسه ثابت task پس‌زمینه — همین مقدار را بنویسید، تغییر ندهید -->
+<key>BGTaskSchedulerPermittedIdentifiers</key>
+<array>
+    <string>com.example.notification_master.polling</string>
+</array>
+
+<!-- توضیح دلیل ارسال نوتیفیکیشن -->
+<key>NSUserNotificationUsageDescription</key>
+<string>این اپ برای اطلاع‌رسانی به شما نوتیفیکیشن ارسال می‌کند.</string>
 ```
 
-سپس در `example/ios/Runner/AppDelegate.swift`:
+> ⚠️ **مهم:** مقدار `com.example.notification_master.polling` یک رشته ثابت است که در کد Swift پلاگین هاردکد شده. آن را با `$(PRODUCT_BUNDLE_IDENTIFIER)` جایگزین **نکنید** — وگرنه background task ثبت نخواهد شد.
+
+#### ۳. AppDelegate.swift
+
+محتوای `ios/Runner/AppDelegate.swift` را با این کد جایگزین کنید:
 
 ```swift
 import Flutter
@@ -90,46 +124,53 @@ import UserNotifications
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    // تنظیم delegate برای نمایش نوتیفیکیشن در حالت foreground
+    // ضروری: نمایش نوتیفیکیشن هنگام باز بودن اپ
     UNUserNotificationCenter.current().delegate = self
-    
+
+    // ضروری: ثبت task پس‌زمینه
     NotificationMasterPlugin.registerBackgroundTask()
+
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
   }
-  
+
   // نمایش نوتیفیکیشن در حالت foreground
-  func userNotificationCenter(_ center: UNUserNotificationCenter,
-                             willPresent notification: UNNotification,
-                             withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+  func userNotificationCenter(
+    _ center: UNUserNotificationCenter,
+    willPresent notification: UNNotification,
+    withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+  ) {
     completionHandler([.banner, .sound, .badge])
   }
-  
+
   // مدیریت کلیک روی نوتیفیکیشن
-  func userNotificationCenter(_ center: UNUserNotificationCenter,
-                             didReceive response: UNNotificationResponse,
-                             withCompletionHandler completionHandler: @escaping () -> Void) {
+  func userNotificationCenter(
+    _ center: UNUserNotificationCenter,
+    didReceive response: UNNotificationResponse,
+    withCompletionHandler completionHandler: @escaping () -> Void
+  ) {
     completionHandler()
   }
 }
 ```
 
-**نکات مهم:**
-- `UNUserNotificationCenterDelegate` برای نمایش نوتیفیکیشن در حالت foreground ضروری است
-- متد `willPresent` اجازه می‌دهد نوتیفیکیشن‌ها هنگام باز بودن اپ نمایش داده شوند
-- متد `didReceive` برای مدیریت کلیک روی نوتیفیکیشن استفاده می‌شود
-
-**📖 برای راهنمای کامل راه‌اندازی iOS شامل تنظیمات Podfile:**
-- فارسی: [IOS_SETUP_FA.md](IOS_SETUP_FA.md)
-- English: [IOS_SETUP.md](IOS_SETUP.md)
+**چرا این موارد ضروری هستند:**
+- `import notification_master` — برای صدا زدن `NotificationMasterPlugin.registerBackgroundTask()` لازم است
+- `UNUserNotificationCenterDelegate` — برای نمایش نوتیفیکیشن هنگام باز بودن اپ ضروری است
+- `registerBackgroundTask()` — task پس‌زمینه را با iOS ثبت می‌کند
+- بدون `willPresent`، نوتیفیکیشن‌ها هنگام باز بودن اپ بی‌صدا حذف می‌شوند
 
 **⚠️ مشکل رایج - خطای Deployment Target:**
 اگر خطای CocoaPods مربوط به deployment target دریافت کردید:
 - فارسی: [IOS_DEPLOYMENT_TARGET_FIX_FA.md](IOS_DEPLOYMENT_TARGET_FIX_FA.md)
 - English: [IOS_DEPLOYMENT_TARGET_FIX.md](IOS_DEPLOYMENT_TARGET_FIX.md)
+
+**📖 راهنمای کامل راه‌اندازی iOS:**
+- فارسی: [IOS_SETUP_FA.md](IOS_SETUP_FA.md)
+- English: [IOS_SETUP.md](IOS_SETUP.md)
 
 ---
 
@@ -142,11 +183,80 @@ import UserNotifications
 
 ### 🖥️ macOS
 
-در فایل `macos/Runner/DebugProfile.entitlements` و `Release.entitlements`:
+#### ۱. Entitlements
+
+در **هر دو** فایل `macos/Runner/DebugProfile.entitlements` و `macos/Runner/Release.entitlements` اضافه کنید:
 
 ```xml
+<!-- دسترسی به شبکه برای HTTP polling -->
 <key>com.apple.security.network.client</key>
 <true/>
+
+<!-- نمایش نوتیفیکیشن محلی در sandbox مک -->
+<key>com.apple.security.usernotifications</key>
+<true/>
+```
+
+#### ۲. Info.plist
+
+در فایل `macos/Runner/Info.plist` داخل تگ `<dict>` اضافه کنید:
+
+```xml
+<!-- شناسه ثابت task پس‌زمینه — همین مقدار را بنویسید، تغییر ندهید -->
+<key>BGTaskSchedulerPermittedIdentifiers</key>
+<array>
+    <string>com.example.notification_master.polling</string>
+</array>
+
+<!-- توضیح دلیل ارسال نوتیفیکیشن -->
+<key>NSUserNotificationUsageDescription</key>
+<string>این اپ برای اطلاع‌رسانی به شما نوتیفیکیشن ارسال می‌کند.</string>
+```
+
+#### ۳. AppDelegate.swift
+
+محتوای `macos/Runner/AppDelegate.swift` را با این کد جایگزین کنید:
+
+```swift
+import Cocoa
+import FlutterMacOS
+import notification_master
+import UserNotifications
+
+@main
+class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
+  override func applicationDidFinishLaunching(_ notification: Notification) {
+    // ضروری: نمایش نوتیفیکیشن هنگام باز بودن اپ
+    UNUserNotificationCenter.current().delegate = self
+
+    // ضروری: ثبت task پس‌زمینه
+    NotificationMasterPlugin.registerBackgroundTask()
+
+    super.applicationDidFinishLaunching(notification)
+  }
+
+  override func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+    return true
+  }
+
+  // نمایش نوتیفیکیشن در حالت foreground
+  func userNotificationCenter(
+    _ center: UNUserNotificationCenter,
+    willPresent notification: UNNotification,
+    withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+  ) {
+    completionHandler([.banner, .sound, .badge])
+  }
+
+  // مدیریت کلیک روی نوتیفیکیشن
+  func userNotificationCenter(
+    _ center: UNUserNotificationCenter,
+    didReceive response: UNNotificationResponse,
+    withCompletionHandler completionHandler: @escaping () -> Void
+  ) {
+    completionHandler()
+  }
+}
 ```
 
 ---
@@ -520,6 +630,229 @@ print('سرویس فعال: $service'); // مثلاً: "firebase" یا "none"
 
 ---
 
+### `getDeviceToken()`
+
+دریافت توکن دستگاه برای نوتیفیکیشن‌های push. توکن FCM در Android، توکن APNS در iOS، یا شناسه منحصربه‌فرد دستگاه به عنوان fallback برمی‌گرداند.
+
+```dart
+final token = await notificationMaster.getDeviceToken();
+print('توکن دستگاه: $token');
+```
+
+**رفتار در هر پلتفرم:**
+- **Android**: اگر Firebase Messaging در دسترس باشد توکن FCM، در غیر این صورت Android ID
+- **iOS**: اگر APNS token در دسترس باشد آن را برمی‌گرداند، در غیر این صورت `identifierForVendor` UUID
+- **Web/Desktop**: پشتیبانی نمی‌شود (null برمی‌گرداند)
+
+---
+
+### `subscribeToTopic(String topic)`
+
+عضویت در یک موضوع (topic) نوتیفیکیشن. در Android/iOS با Firebase، این متد در FCM topic عضو می‌شود.
+
+```dart
+// عضویت در یک topic
+final success = await notificationMaster.subscribeToTopic('news');
+print('عضو شد: $success');
+
+// ارسال نوتیفیکیشن به همه اعضای یک topic
+// (از سرور شما): https://fcm.googleapis.com/v1/projects/{project}/messages:send
+// {
+//   "message": {
+//     "topic": "news",
+//     "notification": { "title": "خبر فوری", "body": "..." }
+//   }
+// }
+```
+
+**رفتار در هر پلتفرم:**
+- **Android**: از Firebase Messaging `subscribeToTopic()` استفاده می‌کند (اگر در دسترس باشد)
+- **iOS**: عضویت را به صورت محلی ذخیره می‌کند (با Firebase برای پیام‌رسانی topic سمت سرور استفاده کنید)
+- **Web/Desktop**: پشتیبانی نمی‌شود
+
+---
+
+### `unsubscribeFromTopic(String topic)`
+
+لغو عضویت از یک topic نوتیفیکیشن. همیشه موفق می‌شود — با Firebase از FCM لغو می‌کند، بدون Firebase رکورد محلی را حذف می‌کند.
+
+```dart
+final success = await notificationMaster.unsubscribeFromTopic('news');
+print('لغو عضویت: $success');
+```
+
+**رفتار در هر پلتفرم:**
+- **Android با Firebase**: `FirebaseMessaging.getInstance().unsubscribeFromTopic()` را صدا می‌زند و لوکال هم حذف می‌کند
+- **Android بدون Firebase**: از `SharedPreferences` حذف می‌کند
+- **iOS**: از `UserDefaults` حذف می‌کند
+- **macOS / Windows / Linux**: از storage محلی حذف می‌کند
+
+---
+
+### `getSubscribedTopics()`
+
+لیست topic‌هایی که دستگاه در حال حاضر در آن‌ها عضو است را برمی‌گرداند.
+
+```dart
+final topics = await notificationMaster.getSubscribedTopics();
+print('تاپیک‌های فعال: $topics'); // مثلاً: ['news', 'offers', 'alerts']
+```
+
+**رفتار در هر پلتفرم:**
+- **Android با Firebase**: لیست cache شده محلی که همتای FCM است
+- **همه پلتفرم‌ها بدون Firebase**: لیست ذخیره شده محلی
+
+#### جریان کامل server-side بدون Firebase
+
+```dart
+final notificationMaster = NotificationMaster();
+
+// ۱. دریافت شناسه دستگاه
+final token = await notificationMaster.getDeviceToken();
+
+// ۲. عضویت در topic‌ها
+await notificationMaster.subscribeToTopic('news');
+await notificationMaster.subscribeToTopic('offers');
+
+// ۳. دریافت لیست topic‌های فعال
+final topics = await notificationMaster.getSubscribedTopics();
+
+// ۴. ثبت token + topic‌ها روی سرور شما
+await myApi.registerDevice(token: token!, topics: topics);
+// سرور شما می‌تواند نوتیفیکیشن push به همه دستگاه‌های
+// عضو 'news' ارسال کند
+
+// بعداً — لغو عضویت
+await notificationMaster.unsubscribeFromTopic('offers');
+final updatedTopics = await notificationMaster.getSubscribedTopics();
+await myApi.updateDevice(token: token!, topics: updatedTopics);
+```
+
+---
+
+## مدیریت سرویس نوتیفیکیشن
+
+پلاگین یک سیستم مدیریت یکپارچه سرویس نوتیفیکیشن فراهم می‌کند که به شما اجازه می‌دهد روش تحویل نوتیفیکیشن را انتخاب کنید. فقط یک سرویس می‌تواند در هر زمان فعال باشد — شروع سرویس جدید به طور خودکار سرویس قبلی را متوقف می‌کند.
+
+### سرویس‌های موجود
+
+| سرویس | متد | مصرف باتری | قابلیت اطمینان | مورد استفاده |
+|-------|-----|-----------|---------------|-------------|
+| **Polling** | `startNotificationPolling()` | کم | متوسط | بررسی‌های دوره‌ای پس‌زمینه (هر ۱۵+ دقیقه) |
+| **Foreground Service** | `startForegroundService()` | زیاد | بالا | نوتیفیکیشن‌های لحظه‌ای مداوم |
+| **Firebase (FCM)** | `setFirebaseAsActiveService()` | خیلی کم | خیلی بالا | نوتیفیکیشن‌های push از سرور |
+
+### نحوه کار
+
+1. **انتخاب سرویس**: وقتی هر سرویس نوتیفیکیشنی را شروع می‌کنید، پلاگین نوع سرویس فعال را در SharedPreferences ذخیره کرده و هر سرویس در حال اجرای قبلی را متوقف می‌کند.
+
+2. **تغییر خودکار**: اگر Polling را شروع کنید در حالی که Foreground Service در حال اجراست، Foreground Service به طور خودکار متوقف می‌شود.
+
+3. **حفظ وضعیت**: وضعیت سرویس فعال در بازراهای مجدد اپ حفظ می‌شود. می‌توانید بررسی کنید کدام سرویس فعال است با `getActiveNotificationService()`.
+
+### مثال: رابط مدیریت سرویس
+
+```dart
+class NotificationServiceManager extends StatefulWidget {
+  @override
+  State<NotificationServiceManager> createState() => _NotificationServiceManagerState();
+}
+
+class _NotificationServiceManagerState extends State<NotificationServiceManager> {
+  final _nm = NotificationMaster();
+  String _activeService = 'none';
+
+  @override
+  void initState() {
+    super.initState();
+    _checkActiveService();
+  }
+
+  Future<void> _checkActiveService() async {
+    final service = await _nm.getActiveNotificationService();
+    setState(() => _activeService = service);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        // نمایشگر وضعیت
+        Text('فعال: $_activeService',
+          style: TextStyle(fontWeight: FontWeight.bold)),
+
+        // گزینه Polling
+        ElevatedButton(
+          onPressed: () async {
+            await _nm.startNotificationPolling(
+              pollingUrl: 'https://api.example.com/notifications',
+              intervalMinutes: 15,
+            );
+            _checkActiveService();
+          },
+          child: Text('شروع Polling'),
+        ),
+
+        // گزینه Foreground Service
+        ElevatedButton(
+          onPressed: () async {
+            await _nm.startForegroundService(
+              pollingUrl: 'https://api.example.com/notifications',
+              intervalMinutes: 5,
+            );
+            _checkActiveService();
+          },
+          child: Text('شروع Foreground Service'),
+        ),
+
+        // گزینه Firebase
+        ElevatedButton(
+          onPressed: () async {
+            await _nm.setFirebaseAsActiveService();
+            _checkActiveService();
+          },
+          child: Text('استفاده از Firebase (FCM)'),
+        ),
+
+        // توقف همه
+        ElevatedButton(
+          onPressed: () async {
+            await _nm.stopNotificationPolling();
+            await _nm.stopForegroundService();
+            _checkActiveService();
+          },
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+          child: Text('توقف همه سرویس‌ها'),
+        ),
+      ],
+    );
+  }
+}
+```
+
+### چرخه حیات سرویس
+
+```
+شروع اپ
+    │
+    ▼
+getActiveNotificationService() → "none"
+    │
+    ▼
+startNotificationPolling() → "polling" (Background WorkManager/BGTaskScheduler)
+    │
+    ▼
+startForegroundService() → "foreground" (polling به طور خودکار متوقف می‌شود)
+    │
+    ▼
+setFirebaseAsActiveService() → "firebase" (foreground service به طور خودکار متوقف می‌شود)
+    │
+    ▼
+stopNotificationPolling() + stopForegroundService() → "none"
+```
+
+---
+
 ## استفاده از UnifiedNotificationService
 
 این کلاس یک رابط یکپارچه برای تمام پلتفرم‌ها فراهم می‌کند.
@@ -744,7 +1077,7 @@ class _HomePageState extends State<HomePage> {
 - **کانال‌ها**: فقط Android 8.0+ پشتیبانی می‌کند؛ در سایر پلتفرم‌ها نادیده گرفته می‌شود.
 - **آیکون اپلیکیشن**: از `showStyledNotification()` برای نمایش آیکون اپلیکیشن در نوتیفیکیشن استفاده کنید. ⭐
 - **صدا**: کانال‌های سفارشی حالا به درستی با `enableSound: true` صدا پخش می‌کنند. ✅
-- **iOS**: نیاز به iOS 14.0+ دارد (به دلیل وابستگی workmanager_apple). از iOS 14 تا iOS 26+ پشتیبانی می‌کند. 📱
+- **iOS**: نیاز به iOS 14.0+ دارد. از iOS 14 تا iOS 26+ پشتیبانی می‌کند. 📱
 
 ---
 
@@ -761,6 +1094,9 @@ class _HomePageState extends State<HomePage> {
 - `showStyledNotification()`: نوتیفیکیشن با آیکون اپلیکیشن و متن کامل (توصیه می‌شود)
 - `showHeadsUpNotification()`: نوتیفیکیشن که از بالای صفحه ظاهر می‌شود
 - `showFullScreenNotification()`: نوتیفیکیشن تمام صفحه برای هشدارهای فوری
+- `getDeviceToken()`: دریافت توکن دستگاه برای نوتیفیکیشن‌های push (FCM/APNS)
+- `subscribeToTopic()`: عضویت در یک topic نوتیفیکیشن برای ارسال هدفمند
+- `unsubscribeFromTopic()`: لغو عضویت از یک topic نوتیفیکیشن
 
 ### 📚 مستندات:
 - فایل `NOTIFICATION_TYPES_FA.md` را برای مستندات کامل فارسی ببینید
@@ -768,7 +1104,8 @@ class _HomePageState extends State<HomePage> {
 
 ### 🔧 رفع مشکلات Build:
 - macOS: خطاهای کامپایل BGTaskScheduler برطرف شد
-- iOS: به iOS 14.0 deployment target تنظیم شد (نیاز workmanager_apple، iOS 14-26+ پشتیبانی)
+- iOS: به iOS 14.0 deployment target تنظیم شد
+- حذف وابستگی `workmanager` — polling پس‌زمینه حالا از APIهای بومی استفاده می‌کند
 - برای جزئیات `BUILD_FIXES.md` را ببینید
 
 ---

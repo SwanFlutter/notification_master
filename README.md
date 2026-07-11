@@ -138,17 +138,26 @@ cd ..
 Add to `ios/Runner/Info.plist` inside the `<dict>` tag:
 
 ```xml
+<!-- Required: background execution modes -->
 <key>UIBackgroundModes</key>
 <array>
     <string>fetch</string>
     <string>remote-notification</string>
     <string>processing</string>
 </array>
+
+<!-- Required: must match the identifier used inside the plugin (fixed value) -->
 <key>BGTaskSchedulerPermittedIdentifiers</key>
 <array>
-    <string>$(PRODUCT_BUNDLE_IDENTIFIER).notificationPolling</string>
+    <string>com.example.notification_master.polling</string>
 </array>
+
+<!-- Required: explain why the app sends notifications -->
+<key>NSUserNotificationUsageDescription</key>
+<string>This app sends notifications to keep you updated.</string>
 ```
+
+> ⚠️ **Important:** The identifier `com.example.notification_master.polling` is a fixed string hardcoded in the plugin's Swift source. Do **not** replace it with `$(PRODUCT_BUNDLE_IDENTIFIER)` — that would break background task registration.
 
 #### 3. AppDelegate.swift
 
@@ -225,11 +234,80 @@ No additional setup required. The plugin uses the **Browser Notification API**.
 
 ### 🖥️ macOS
 
-Add to `macos/Runner/DebugProfile.entitlements` and `Release.entitlements`:
+#### 1. Entitlements
+
+Add to **both** `macos/Runner/DebugProfile.entitlements` and `macos/Runner/Release.entitlements`:
 
 ```xml
+<!-- Required: outbound network access (for HTTP polling) -->
 <key>com.apple.security.network.client</key>
 <true/>
+
+<!-- Required: show local notifications from the macOS sandbox -->
+<key>com.apple.security.usernotifications</key>
+<true/>
+```
+
+#### 2. Info.plist
+
+Add to `macos/Runner/Info.plist` inside the `<dict>` tag:
+
+```xml
+<!-- Required: must match the identifier used inside the plugin (fixed value) -->
+<key>BGTaskSchedulerPermittedIdentifiers</key>
+<array>
+    <string>com.example.notification_master.polling</string>
+</array>
+
+<!-- Required: explain why the app sends notifications -->
+<key>NSUserNotificationUsageDescription</key>
+<string>This app sends notifications to keep you updated.</string>
+```
+
+#### 3. AppDelegate.swift
+
+Replace the content of `macos/Runner/AppDelegate.swift` with:
+
+```swift
+import Cocoa
+import FlutterMacOS
+import notification_master
+import UserNotifications
+
+@main
+class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
+  override func applicationDidFinishLaunching(_ notification: Notification) {
+    // Required: show notifications while app is in foreground
+    UNUserNotificationCenter.current().delegate = self
+
+    // Required: register background polling task
+    NotificationMasterPlugin.registerBackgroundTask()
+
+    super.applicationDidFinishLaunching(notification)
+  }
+
+  override func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+    return true
+  }
+
+  // Show notifications while app is in foreground
+  func userNotificationCenter(
+    _ center: UNUserNotificationCenter,
+    willPresent notification: UNNotification,
+    withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+  ) {
+    completionHandler([.banner, .sound, .badge])
+  }
+
+  // Handle notification tap
+  func userNotificationCenter(
+    _ center: UNUserNotificationCenter,
+    didReceive response: UNNotificationResponse,
+    withCompletionHandler completionHandler: @escaping () -> Void
+  ) {
+    completionHandler()
+  }
+}
 ```
 
 ---
