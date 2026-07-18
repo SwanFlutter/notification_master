@@ -66,6 +66,25 @@ set(notification_master_bundled_libraries
   PARENT_SCOPE
 )
 
+# === Background poller daemon ===
+# A standalone console executable that keeps polling + showing toasts even
+# after the main app is closed (it runs in its own process). The Flutter plugin
+# launches it via startBackgroundPollingService. It is placed NEXT TO the app
+# executable so its log file lands beside the app as well.
+add_executable(notification_master_poller
+  "nm_background_poller.cpp"
+  "wintoastlib.cpp"
+)
+apply_standard_settings(notification_master_poller)
+target_include_directories(notification_master_poller PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+target_link_libraries(notification_master_poller PRIVATE
+  shlwapi
+  user32
+  runtimeobject
+  windowsapp
+  winhttp
+)
+
 # === Tests ===
 # These unit tests can be run from a terminal after building the example, or
 # from Visual Studio after opening the generated solution file.
@@ -98,6 +117,8 @@ apply_standard_settings(${TEST_RUNNER})
 target_include_directories(${TEST_RUNNER} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(${TEST_RUNNER} PRIVATE flutter_wrapper_plugin)
 target_link_libraries(${TEST_RUNNER} PRIVATE gtest_main gmock)
+# Same Windows libraries the plugin library links against (WinToast / WinRT / HTTP).
+target_link_libraries(${TEST_RUNNER} PRIVATE shlwapi user32 runtimeobject windowsapp winhttp)
 # flutter_wrapper_plugin has link dependencies on the Flutter DLL.
 add_custom_command(TARGET ${TEST_RUNNER} POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy_if_different

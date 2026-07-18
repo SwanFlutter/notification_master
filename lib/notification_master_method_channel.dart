@@ -309,4 +309,88 @@ class MethodChannelNotificationMaster extends NotificationMasterPlatform {
     );
     return result ?? [];
   }
+
+  @override
+  Future<bool> scheduleNotification({
+    required int id,
+    required String title,
+    required String message,
+    required int scheduledEpochMillis,
+    String? channelId,
+    NotificationImportance? importance,
+    bool alarmSound = false,
+    String? targetScreen,
+    Map<String, dynamic>? extraData,
+  }) async {
+    final args = <String, dynamic>{
+      'id': id,
+      'title': title,
+      'message': message,
+      'scheduledEpochMillis': scheduledEpochMillis,
+      'channelId': channelId,
+      'alarmSound': alarmSound,
+      'targetScreen': targetScreen,
+      'extraData': extraData,
+    };
+    if (importance != null) args['priority'] = importance.value;
+    final result = await methodChannel.invokeMethod<bool>(
+      'scheduleNotification',
+      args,
+    );
+    return result ?? false;
+  }
+
+  @override
+  Future<bool> cancelScheduledNotification(int id) async {
+    final result = await methodChannel.invokeMethod<bool>(
+      'cancelScheduledNotification',
+      {'id': id},
+    );
+    return result ?? false;
+  }
+
+  @override
+  Future<bool> cancelAllScheduledNotifications() async {
+    final result = await methodChannel.invokeMethod<bool>(
+      'cancelAllScheduledNotifications',
+    );
+    return result ?? false;
+  }
+
+  @override
+  Future<List<int>> getPendingScheduledNotifications() async {
+    final result = await methodChannel.invokeListMethod<int>(
+      'getPendingScheduledNotifications',
+    );
+    return result ?? [];
+  }
+
+  @override
+  Future<bool> startBackgroundPollingService({
+    required String pollingUrl,
+    int? intervalMinutes,
+  }) async {
+    final result = await methodChannel
+        .invokeMethod<bool>('startBackgroundPollingService', {
+          'pollingUrl': pollingUrl,
+          'intervalMinutes': intervalMinutes,
+        });
+    return result ?? false;
+  }
+
+  @override
+  Future<bool> stopBackgroundPollingService() async {
+    final result = await methodChannel.invokeMethod<bool>(
+      'stopBackgroundPollingService',
+    );
+    return result ?? false;
+  }
+
+  @override
+  Future<bool> isBackgroundPollingRunning() async {
+    final result = await methodChannel.invokeMethod<bool>(
+      'isBackgroundPollingRunning',
+    );
+    return result ?? false;
+  }
 }

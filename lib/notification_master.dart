@@ -324,4 +324,80 @@ class NotificationMaster {
   Future<List<String>> getSubscribedTopics() {
     return NotificationMasterPlatform.instance.getSubscribedTopics();
   }
+
+  /// Schedule a notification to be shown by the operating system at a fixed
+  /// time, even when the app is fully closed (a real background service).
+  ///
+  /// This uses the platform's native scheduling APIs (Android AlarmManager,
+  /// iOS/macOS `UNUserNotificationCenter` calendar triggers, Windows
+  /// scheduled toasts, Linux detached timer) so **no external plugin is
+  /// required**.
+  ///
+  /// - [id] must be unique; use it later to cancel the notification.
+  /// - [scheduledEpochMillis] is the delivery time as milliseconds since epoch.
+  /// - [alarmSound] plays a louder, alarm-like sound (high importance channel).
+  ///
+  /// Returns `true` when the notification was scheduled.
+  Future<bool> scheduleNotification({
+    required int id,
+    required String title,
+    required String message,
+    required DateTime scheduledTime,
+    String? channelId,
+    NotificationImportance? importance,
+    bool alarmSound = false,
+    String? targetScreen,
+    Map<String, dynamic>? extraData,
+  }) {
+    return NotificationMasterPlatform.instance.scheduleNotification(
+      id: id,
+      title: title,
+      message: message,
+      scheduledEpochMillis: scheduledTime.millisecondsSinceEpoch,
+      channelId: channelId,
+      importance: importance,
+      alarmSound: alarmSound,
+      targetScreen: targetScreen,
+      extraData: extraData,
+    );
+  }
+
+  /// Cancel a single notification previously scheduled with [scheduleNotification].
+  Future<bool> cancelScheduledNotification(int id) {
+    return NotificationMasterPlatform.instance.cancelScheduledNotification(id);
+  }
+
+  /// Cancel every notification scheduled with [scheduleNotification].
+  Future<bool> cancelAllScheduledNotifications() {
+    return NotificationMasterPlatform.instance.cancelAllScheduledNotifications();
+  }
+
+  /// Returns the ids of notifications that are scheduled but not yet delivered.
+  Future<List<int>> getPendingScheduledNotifications() {
+    return NotificationMasterPlatform.instance.getPendingScheduledNotifications();
+  }
+
+  /// Start a standalone background poller (Windows). It keeps polling
+  /// [pollingUrl] and showing toasts even after the app is fully closed,
+  /// because it runs in its own process. A log file is written next to the
+  /// executable for diagnostics.
+  Future<bool> startBackgroundPollingService({
+    required String pollingUrl,
+    int? intervalMinutes,
+  }) {
+    return NotificationMasterPlatform.instance.startBackgroundPollingService(
+      pollingUrl: pollingUrl,
+      intervalMinutes: intervalMinutes,
+    );
+  }
+
+  /// Stop the background poller started via [startBackgroundPollingService].
+  Future<bool> stopBackgroundPollingService() {
+    return NotificationMasterPlatform.instance.stopBackgroundPollingService();
+  }
+
+  /// Whether the background poller process is currently running.
+  Future<bool> isBackgroundPollingRunning() {
+    return NotificationMasterPlatform.instance.isBackgroundPollingRunning();
+  }
 }

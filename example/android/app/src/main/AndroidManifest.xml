@@ -21,6 +21,12 @@
     <!-- Optional: keep CPU awake during polling -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
+    <!-- Required for exact alarm scheduling (Android 12+ / API 31+) -->
+    <!-- SCHEDULE_EXACT_ALARM: user must grant via Settings → Apps → Special app access → Alarms & reminders -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <!-- USE_EXACT_ALARM: granted automatically on Android 13+ for alarm-clock apps (API 33+) -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+
     <application
         android:label="notification_master_example"
         android:name="${applicationName}"

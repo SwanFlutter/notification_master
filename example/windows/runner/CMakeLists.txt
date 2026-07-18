@@ -38,3 +38,15 @@ target_include_directories(${BINARY_NAME} PRIVATE "${CMAKE_SOURCE_DIR}")
 
 # Run the Flutter tool portions of the build. This must not be removed.
 add_dependencies(${BINARY_NAME} flutter_assemble)
+
+# Copy the background poller daemon next to the app executable after every build
+# so it can be launched (and keep polling/showing toasts) even after the app is
+# closed. The plugin builds it under the plugins output directory (Debug/ subdir).
+set(NM_POLLER_EXE
+    "${PROJECT_BUILD_DIR}windows/x64/plugins/notification_master/Debug/notification_master_poller.exe")
+add_custom_command(TARGET ${BINARY_NAME} POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          "${NM_POLLER_EXE}"
+          "$<TARGET_FILE_DIR:${BINARY_NAME}>/notification_master_poller.exe"
+  COMMENT "[NM] Copying notification_master_poller.exe next to app"
+  VERBATIM)

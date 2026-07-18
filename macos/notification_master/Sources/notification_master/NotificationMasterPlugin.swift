@@ -71,6 +71,22 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin {
       unsubscribeFromTopic(topic, result: result)
     case "getSubscribedTopics":
       getSubscribedTopics(result: result)
+    case "scheduleNotification":
+      scheduleNotification(call: call, result: result)
+    case "cancelScheduledNotification":
+      guard let args = call.arguments as? [String: Any], let id = args["id"] as? Int else {
+        result(FlutterError(code: "INVALID_ARGS", message: "id required", details: nil))
+        return
+      }
+      cancelScheduledNotification(id: id)
+      result(true)
+    case "cancelAllScheduledNotifications":
+      cancelAllScheduledNotifications()
+      result(true)
+    case "getPendingScheduledNotifications":
+      getPendingScheduledNotifications { ids in
+        result(ids)
+      }
     default:
       result(FlutterMethodNotImplemented)
     }
@@ -376,5 +392,88 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin {
     request.earliestBeginDate = Date(timeIntervalSinceNow: Double(mins * 60))
     try? BGTaskScheduler.shared.submit(request)
     #endif
+  }
+
+  // MARK: - Scheduled (Background) Notifications
+
+  private static let scheduledPrefix = "nm_sched_"
+
+  private func scheduledIdentifier(id: Int) -> String {
+    return NotificationMasterPlugin.scheduledPrefix + String(id)
+  }
+
+  private func scheduleNotification(call: FlutterMethodCall, result: @escaping FlutterResult) {
+    guard let args = call.arguments as? [String: Any],
+          let id = args["id"] as? Int,
+          let title = args["title"] as? String,
+          let message = args["message"] as? String else {
+      result(FlutterError(code: "INVALID_ARGS", message: "id, title, message required", details: nil))
+      return
+    }
+    let priority = args["priority"] as? Int ?? 2
+    let alarmSound = args["alarmSound"] as? Bool ?? false
+    let targetScreen = args["targetScreen"] as? String
+    let extraData = args["extraData"] as? [String: Any]
+    let scheduledEpochMillis = Int64(args["scheduledEpochMillis"] as? Int ?? 0)
+
+    let content = UNMutableNotificationContent()
+    content.title = title
+    content.body = message
+
+    var userInfo: [String: Any] = [:]
+    if let targetScreen = targetScreen { userInfo["targetScreen"] = targetScreen }
+    if let extraData = extraData { userInfo["extraData"] = extraData }
+    content.userInfo = userInfo
+
+    if priority >= 2 || alarmSound {
+      content.sound = .default
+    }
+
+    let nowMillis = Int64(Date().timeIntervalSince1970 * 1000)
+    let delaySeconds = max(0.1, Double(scheduledEpochMillis - nowMillis) / 1000.0)
+    let trigger = UNTimeIntervalNotificationTrigger(timeInterval: delaySeconds, repeats: false)
+
+    let request = UNNotificationRequest(
+      identifier: scheduledIdentifier(id: id),
+      content: content,
+      trigger: trigger
+    )
+    UNUserNotificationCenter.current().add(request) { error in
+      DispatchQueue.main.async {
+        if let error = error {
+          print("[NotificationMaster] Error scheduling notification: \(error)")
+          result(false)
+        } else {
+          result(true)
+        }
+      }
+    }
+  }
+
+  private func cancelScheduledNotification(id: Int) {
+    UNUserNotificationCenter.current().removePendingNotificationRequests(
+      withIdentifiers: [scheduledIdentifier(id: id)]
+    )
+  }
+
+  private func cancelAllScheduledNotifications() {
+    let center = UNUserNotificationCenter.current()
+    center.getPendingNotificationRequests { requests in
+      let ids = requests
+        .filter { $0.identifier.hasPrefix(NotificationMasterPlugin.scheduledPrefix) }
+        .map { $0.identifier }
+      center.removePendingNotificationRequests(withIdentifiers: ids)
+    }
+  }
+
+  private func getPendingScheduledNotifications(completion: @escaping ([Int]) -> Void) {
+    UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
+      let prefix = NotificationMasterPlugin.scheduledPrefix
+      let ids = requests.compactMap { request -> Int? in
+        guard request.identifier.hasPrefix(prefix) else { return nil }
+        return Int(request.identifier.dropFirst(prefix.count))
+      }
+      completion(ids)
+    }
   }
 }

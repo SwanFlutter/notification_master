@@ -204,4 +204,66 @@ abstract class NotificationMasterPlatform extends PlatformInterface {
   Future<List<String>> getSubscribedTopics() {
     throw UnimplementedError('getSubscribedTopics() has not been implemented.');
   }
+
+  /// Schedule a notification to be delivered by the operating system at a
+  /// specific point in time, even when the app is fully closed.
+  Future<bool> scheduleNotification({
+    required int id,
+    required String title,
+    required String message,
+    required int scheduledEpochMillis,
+    String? channelId,
+    NotificationImportance? importance,
+    bool alarmSound = false,
+    String? targetScreen,
+    Map<String, dynamic>? extraData,
+  }) {
+    throw UnimplementedError('scheduleNotification() has not been implemented.');
+  }
+
+  /// Cancel a previously scheduled notification by its [id].
+  Future<bool> cancelScheduledNotification(int id) {
+    throw UnimplementedError(
+      'cancelScheduledNotification() has not been implemented.',
+    );
+  }
+
+  /// Cancel every notification that was scheduled through [scheduleNotification].
+  Future<bool> cancelAllScheduledNotifications() {
+    throw UnimplementedError(
+      'cancelAllScheduledNotifications() has not been implemented.',
+    );
+  }
+
+  /// Returns the ids of notifications that are scheduled but not yet delivered.
+  Future<List<int>> getPendingScheduledNotifications() {
+    throw UnimplementedError(
+      'getPendingScheduledNotifications() has not been implemented.',
+    );
+  }
+
+  /// Start a standalone background poller process that keeps polling [pollingUrl]
+  /// and showing toasts even after the app is fully closed (Windows only).
+  Future<bool> startBackgroundPollingService({
+    required String pollingUrl,
+    int? intervalMinutes,
+  }) {
+    throw UnimplementedError(
+      'startBackgroundPollingService() has not been implemented.',
+    );
+  }
+
+  /// Stop the background poller process started via [startBackgroundPollingService].
+  Future<bool> stopBackgroundPollingService() {
+    throw UnimplementedError(
+      'stopBackgroundPollingService() has not been implemented.',
+    );
+  }
+
+  /// Whether the background poller process is currently running.
+  Future<bool> isBackgroundPollingRunning() {
+    throw UnimplementedError(
+      'isBackgroundPollingRunning() has not been implemented.',
+    );
+  }
 }

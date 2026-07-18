@@ -2,6 +2,20 @@
 
 ---
 
+## 0.0.8
+
+* **All platforms**: Added native scheduled (background) notifications — no external plugin required.
+  - `scheduleNotification({id, title, message, scheduledTime, channelId, importance, alarmSound, targetScreen, extraData})` — asks the OS to deliver the notification at a fixed time, even when the app is fully closed.
+  - `cancelScheduledNotification(int id)` — cancels a single scheduled notification.
+  - `cancelAllScheduledNotifications()` — cancels all scheduled notifications.
+  - `getPendingScheduledNotifications()` — returns the ids of notifications that are scheduled but not yet delivered.
+* **Android**: Scheduling uses `AlarmManager.setExactAndAllowWhileIdle` (exact, wake-up alarm) with a `BroadcastReceiver`; scheduled items are persisted in `SharedPreferences` and re-armed on device reboot (`BootCompletedReceiver`). Added `SCHEDULE_EXACT_ALARM`/`USE_EXACT_ALARM`/`RECEIVE_BOOT_COMPLETED` permissions.
+* **iOS / macOS**: Scheduling uses `UNUserNotificationCenter` `UNTimeIntervalNotificationTrigger` (computed from the absolute epoch time). `alarmSound` uses a critical sound when available.
+* **Windows**: Scheduling uses WinRT `ScheduledToastNotification` with the same AppUserModelId WinToast registers, so toasts are delivered by the OS. `alarmSound` uses a looping alarm scenario.
+* **Linux**: Scheduling spawns a fully detached `setsid sh -c "sleep N && notify-send ..."` process, which survives the app being closed.
+* **Web**: Best-effort `Timer`-based scheduling (delivers only while the tab stays open).
+* **Example**: `reminder_alarm_page.dart` now uses native `scheduleNotification` (with `alarmSound: true`) instead of a Dart timer, so reminders fire even when the app is closed.
+
 ## 0.0.7
 
 * **All platforms**: Added three new methods for push notification identity management:

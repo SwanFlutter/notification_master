@@ -89,6 +89,20 @@ if(PLUGIN_BUNDLED_LIBRARIES)
     COMPONENT Runtime)
 endif()
 
+# Copy the background poller daemon next to the app executable so it can be
+# launched (and keep polling/showing toasts) even after the app is closed.
+# The plugin builds this target into its own output dir; we point at that path.
+set(NM_POLLER_EXE
+    "${PROJECT_BUILD_DIR}windows/x64/plugins/notification_master/Debug/notification_master_poller.exe")
+install(CODE "
+  if(EXISTS \"${NM_POLLER_EXE}\")
+    file(COPY \"${NM_POLLER_EXE}\" DESTINATION \"${INSTALL_BUNDLE_LIB_DIR}\")
+    message(STATUS \"[NM] Copied notification_master_poller.exe next to app\")
+  else()
+    message(WARNING \"[NM] notification_master_poller.exe not found at ${NM_POLLER_EXE}; background polling daemon will not be available\")
+  endif()
+  " COMPONENT Runtime)
+
 # Copy the native assets provided by the build.dart from all packages.
 set(NATIVE_ASSETS_DIR "${PROJECT_BUILD_DIR}native_assets/windows/")
 install(DIRECTORY "${NATIVE_ASSETS_DIR}"

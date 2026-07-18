@@ -2,7 +2,6 @@
 
 #include "notification_master_plugin.h"
 #include "wintoastlib.h"
-#include "nm_registry_config.h"
 
 // This must be included before many other Windows headers.
 #define NOMINMAX
@@ -29,8 +28,6 @@
 #include <filesystem>
 #include <winhttp.h>
 #include <windows.data.json.h>
-#include <tlhelp32.h>
-#include <windows.data.json.h>
 
 // WinRT ABI headers for OS-level scheduled toasts (ScheduledToastNotification /
 // IToastNotifier::AddToSchedule). These let the OS deliver the toast at the
@@ -51,11 +48,6 @@
 using namespace WinToastLib;
 
 namespace notification_master {
-
-// Forward declarations for registry helpers defined later in this file (used
-// by the background poller control methods above their definition).
-static std::wstring ReadRegistryString(const std::wstring& name);
-static void WriteRegistryString(const std::wstring& name, const std::wstring& value);
 
 // WinToast Handler class
 class WinToastHandler : public IWinToastHandler {
@@ -570,27 +562,6 @@ void NotificationMasterPlugin::HandleMethodCall(
   } else if (method_name == "createCustomChannel") {
     // Windows doesn't use channels like Android
     result->Success(flutter::EncodableValue(true));
-  } else if (method_name == "startBackgroundPollingService") {
-    const auto* arguments = std::get_if<flutter::EncodableMap>(method_call.arguments());
-    if (!arguments) {
-      result->Error("INVALID_ARGUMENT", "Invalid arguments");
-      return;
-    }
-    std::string url = GetStringValue(flutter::EncodableValue(*arguments), "pollingUrl", "");
-    int interval = GetIntValue(flutter::EncodableValue(*arguments), "intervalMinutes", 15);
-    if (url.empty()) {
-      result->Error("INVALID_ARGUMENT", "pollingUrl is required");
-      return;
-    }
-    bool launched = StartBackgroundPollingService(url, interval);
-    result->Success(flutter::EncodableValue(launched));
-  } else if (method_name == "stopBackgroundPollingService") {
-    StopBackgroundPollingService();
-    result->Success(flutter::EncodableValue(true));
-  } else if (method_name == "isBackgroundPollingRunning") {
-    bool running = IsBackgroundPollingRunning();
-    NMLog(L"[NM] isBackgroundPollingRunning=" + std::wstring(running ? L"true" : L"false"));
-    result->Success(flutter::EncodableValue(running));
   } else if (method_name == "startNotificationPolling") {
     const auto* arguments = std::get_if<flutter::EncodableMap>(method_call.arguments());
     if (!arguments) {
@@ -704,120 +675,6 @@ void NotificationMasterPlugin::StopPolling() {
     if (polling_thread_.joinable()) {
         polling_thread_.join();
     }
-}
-
-// ── Background poller daemon control ───────────────────────────────────────
-// The daemon executable is bundled next to this DLL's consumer (the app .exe).
-// Because the plugin DLL is loaded by the app, the simplest robust way to find
-// the daemon is to look next to the host process executable.
-
-std::wstring NotificationMasterPlugin::GetHostExeDir() {
-    wchar_t hostPath[MAX_PATH] = {0};
-    // GetModuleFileNameW with NULL returns the host .exe that loaded us.
-    if (GetModuleFileNameW(nullptr, hostPath, MAX_PATH) == 0) {
-        return L"";
-    }
-    std::filesystem::path p(hostPath);
-    return p.parent_path().wstring();
-}
-
-bool NotificationMasterPlugin::IsBackgroundPollingRunning() {
-    std::wstring enabled = ReadRegistryString(L"bg_poll_enabled");
-    if (enabled != L"1") return false;
-
-    // Also verify the process is actually alive (it clears bg_poll_enabled on
-    // clean exit, but a hard kill may leave a stale "1").
-    HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-    if (snap == INVALID_HANDLE_VALUE) return true;  // assume running
-    PROCESSENTRY32 pe = {sizeof(pe)};
-    bool found = false;
-    if (Process32First(snap, &pe)) {
-        do {
-            if (_wcsicmp(pe.szExeFile, L"notification_master_poller.exe") == 0) {
-                found = true;
-                break;
-            }
-        } while (Process32Next(snap, &pe));
-    }
-    CloseHandle(snap);
-    if (!found) {
-        WriteRegistryString(L"bg_poll_enabled", L"0");
-        return false;
-    }
-    return true;
-}
-
-bool NotificationMasterPlugin::StartBackgroundPollingService(
-    const std::string& url, int intervalMinutes) {
-    NMLog(L"[NM] StartBackgroundPollingService: url=" + StringToWString(url) +
-          L" interval=" + std::to_wstring(intervalMinutes));
-
-    // Persist configuration so the daemon (and restarts) can read it.
-    WriteRegistryString(L"bg_poll_url", StringToWString(url));
-    WriteRegistryString(L"bg_poll_interval",
-                          std::to_wstring(intervalMinutes > 0 ? intervalMinutes : 15));
-
-    if (IsBackgroundPollingRunning()) {
-        NMLog(L"[NM] StartBackgroundPollingService: already running");
-        return true;
-    }
-
-    std::wstring dir = GetHostExeDir();
-    if (dir.empty()) {
-        NMLog(L"[NM] StartBackgroundPollingService: cannot resolve host dir");
-        return false;
-    }
-    std::filesystem::path daemonPath =
-        std::filesystem::path(dir) / L"notification_master_poller.exe";
-    if (!std::filesystem::exists(daemonPath)) {
-        NMLog(L"[NM] StartBackgroundPollingService: daemon NOT FOUND at " +
-              daemonPath.wstring() +
-              L"  >> build the daemon (notification_master_poller target) and ensure it is copied next to the .exe");
-        return false;
-    }
-    NMLog(L"[NM] StartBackgroundPollingService: daemon found at " +
-          daemonPath.wstring());
-
-    // Launch detached, independent of the app's lifetime.
-    STARTUPINFOW si = {sizeof(si)};
-    PROCESS_INFORMATION pi = {0};
-    std::wstring cmd = L"\"" + daemonPath.wstring() + L"\"";
-    if (!CreateProcessW(daemonPath.c_str(), &cmd[0], nullptr, nullptr, FALSE,
-                        CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS,
-                        nullptr, dir.c_str(), &si, &pi)) {
-        DWORD e = GetLastError();
-        NMLog(L"[NM] StartBackgroundPollingService: CreateProcess failed err=" +
-              std::to_wstring(e));
-        return false;
-    }
-    if (pi.hProcess) CloseHandle(pi.hProcess);
-    if (pi.hThread) CloseHandle(pi.hThread);
-    NMLog(L"[NM] StartBackgroundPollingService: launched daemon from " +
-          daemonPath.wstring());
-    return true;
-}
-
-void NotificationMasterPlugin::StopBackgroundPollingService() {
-    // Tell the daemon to shut down (it polls this key every couple of seconds).
-    WriteRegistryString(L"bg_poll_enabled", L"0");
-
-    // Best-effort: terminate any running instance by name.
-    HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-    if (snap == INVALID_HANDLE_VALUE) return;
-    PROCESSENTRY32 pe = {sizeof(pe)};
-    if (Process32First(snap, &pe)) {
-        do {
-            if (_wcsicmp(pe.szExeFile, L"notification_master_poller.exe") == 0) {
-                HANDLE h = OpenProcess(PROCESS_TERMINATE, FALSE, pe.th32ProcessID);
-                if (h) {
-                    TerminateProcess(h, 0);
-                    CloseHandle(h);
-                }
-            }
-        } while (Process32Next(snap, &pe));
-    }
-    CloseHandle(snap);
-    NMLog(L"[NM] StopBackgroundPollingService: requested shutdown");
 }
 
 void NotificationMasterPlugin::PollingThread() {
@@ -1803,16 +1660,16 @@ bool ScheduleOsToast(const std::wstring& aumi,
     return false;
   }
 
-    // Tag it so we can cancel it later (put_Id is on IScheduledToastNotification).
-  // Log the result but do NOT return on failure â€” AddToSchedule can still work.
+  // Tag it so we can cancel it later by locating it in the schedule list.
   hr = scheduled->put_Id(
       WRL::Wrappers::HStringReference(tag.c_str(),
-                                      static_cast<UINT32>(tag.length())).Get());
+                                      static_cast<UINT32>(tag.length()))
+          .Get());
   if (FAILED(hr)) {
-    NMLog(L"[NM] ScheduleOsToast: put_Id FAILED hr=" + std::to_wstring(hr) + L" (continuing without tag)");
-  } else {
-    NMLog(L"[NM] ScheduleOsToast: put_Id SUCCESS tag=" + tag);
+    NMLog(L"[NM] ScheduleOsToast: put_Id FAILED");
+    return false;
   }
+
   WRL::ComPtr<ABI_NOT::IToastNotifier> notifier;
   hr = GetToastNotifier(aumi, &notifier);
   if (FAILED(hr)) {
@@ -2019,21 +1876,16 @@ void NotificationMasterPlugin::ScheduleNotification(
   bool osScheduled = false;
   if (winToastReady) {
     const std::wstring aumi = WinToast::instance()->appUserModelId();
-    NMLog(L"[NM] ScheduleNotification: aumi='" + aumi + L"'");
+    NMLog(L"[NM] ScheduleNotification: aumi='" + aumi + L"'\n");
     if (!aumi.empty()) {
-      NMLog(L"[NM] ScheduleNotification: calling ScheduleOsToast (OS-level, works when app closed)");
       osScheduled = ScheduleOsToast(
           aumi, id, StringToWString(title), StringToWString(message),
           alarmSound, scheduledEpochMillis);
-      NMLog(L"[NM] ScheduleNotification: ScheduleOsToast returned " +
-            std::wstring(osScheduled ? L"true" : L"false"));
+      OutputDebugStringW((L"[NM] ScheduleNotification: ScheduleOsToast returned " +
+          std::wstring(osScheduled ? L"true" : L"false") + L"\n").c_str());
     } else {
-      NMLog(L"[NM] ScheduleNotification: aumi is EMPTY -> OS schedule skipped. "
-            L"WinToast shortcut likely missing; toast will not fire when app closed.");
+      NMLog(L"[NM] ScheduleNotification: aumi is empty, skipping OS schedule");
     }
-  } else {
-    NMLog(L"[NM] ScheduleNotification: winToastReady=false -> cannot use OS schedule; "
-          L"falling back to in-process timer (only fires while app runs).");
   }
 
   if (osScheduled) {
@@ -2146,120 +1998,104 @@ void NotificationMasterPlugin::ShowAlarmToast(
     const std::string& title,
     const std::string& message,
     bool alarmSound) {
-  // COM must be initialized on each background thread.
+  // COM must be initialized on each thread that calls WinRT/WinToast APIs.
+  // Use COINIT_APARTMENTTHREADED to match the main thread's COM model.
   HRESULT hrCo = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+  bool comInitHere = SUCCEEDED(hrCo) || hrCo == RPC_E_CHANGED_MODE;
 
-  NMLog(L"[NM] ShowAlarmToast: FIRED title='" + StringToWString(title) + L"'");
+  OutputDebugStringW((L"[NM] ShowAlarmToast: FIRED title='" +
+      StringToWString(title) + L"' comInitHr=0x" +
+      [hrCo]() { wchar_t buf[20]; swprintf_s(buf, L"%08X", (unsigned)hrCo); return std::wstring(buf); }() +
+      L"\n").c_str());
 
-  const std::string t = title.empty() ? message : title;
-  const std::string m = message.empty() ? title : message;
+  std::string t = title.empty() ? message : title;
+  std::string m = message.empty() ? title : message;
 
-  // Use the same AUMI that WinToast configures - hardcoded so this thread
-  // does not need WinToast to be initialized.
-  const std::wstring aumi = WinToast::configureAUMI(
-      L"NotificationMaster", L"NotificationMaster",
-      L"NotificationMaster", L"1.0.0");
-  NMLog(L"[NM] ShowAlarmToast: AUMI=" + aumi);
-
-  namespace WRL = Microsoft::WRL;
-  namespace ABI_XML = ABI::Windows::Data::Xml::Dom;
-  namespace ABI_NOT = ABI::Windows::UI::Notifications;
-
-  // Build XML.
-  const std::wstring wTitle   = StringToWString(t);
-  const std::wstring wMessage = StringToWString(m);
-  std::wstring xml = L"<toast";
-  if (alarmSound) xml += L" scenario=\"alarm\"";
-  xml += L" duration=\"long\"><visual><binding template=\"ToastGeneric\">";
-  xml += L"<text>" + EscapeXml(wTitle)   + L"</text>";
-  xml += L"<text>" + EscapeXml(wMessage) + L"</text>";
-  xml += L"</binding></visual>";
-  if (alarmSound) {
-    xml += L"<audio src=\"ms-winsoundevent:Notification.Looping.Alarm\" loop=\"true\"/>";
-  }
-  xml += L"</toast>";
-
+  // Try WinRT direct toast first (doesn't need WinToast's AUMI shortcut to
+  // have been registered before this thread started).
   bool shown = false;
-
-  // Load XML document.
-  WRL::ComPtr<IInspectable> xmlInsp;
-  HRESULT hr = RoActivateInstance(
-      WRL::Wrappers::HStringReference(
-          RuntimeClass_Windows_Data_Xml_Dom_XmlDocument).Get(), &xmlInsp);
-  if (FAILED(hr)) {
-    NMLog(L"[NM] ShowAlarmToast: RoActivateInstance(XmlDocument) FAILED hr=" + std::to_wstring(hr));
-    goto done;
-  }
   {
-    WRL::ComPtr<ABI_XML::IXmlDocument>   xmlDoc;
-    WRL::ComPtr<ABI_XML::IXmlDocumentIO> xmlDocIO;
-    if (FAILED(xmlInsp.As(&xmlDoc)) || FAILED(xmlInsp.As(&xmlDocIO))) {
-      NMLog(L"[NM] ShowAlarmToast: QI IXmlDocument/IO FAILED");
-      goto done;
-    }
-    hr = xmlDocIO->LoadXml(
-        WRL::Wrappers::HStringReference(xml.c_str(),
-            static_cast<UINT32>(xml.length())).Get());
-    if (FAILED(hr)) {
-      NMLog(L"[NM] ShowAlarmToast: LoadXml FAILED hr=" + std::to_wstring(hr));
-      goto done;
-    }
+    const std::wstring wTitle = StringToWString(t);
+    const std::wstring wMessage = StringToWString(m);
 
-    // Create toast notification.
-    WRL::ComPtr<ABI_NOT::IToastNotificationFactory> toastFactory;
-    hr = RoGetActivationFactory(
+    // Build toast XML inline.
+    std::wstring xml = L"<toast";
+    if (alarmSound) xml += L" scenario=\"alarm\"";
+    xml += L" duration=\"long\"><visual><binding template=\"ToastGeneric\">";
+    xml += L"<text>" + EscapeXml(wTitle) + L"</text>";
+    xml += L"<text>" + EscapeXml(wMessage) + L"</text>";
+    xml += L"</binding></visual>";
+    if (alarmSound) {
+      xml += L"<audio src=\"ms-winsoundevent:Notification.Looping.Alarm\" loop=\"true\"/>";
+    }
+    xml += L"</toast>";
+
+    namespace WRL = Microsoft::WRL;
+    namespace ABI_XML = ABI::Windows::Data::Xml::Dom;
+    namespace ABI_NOT = ABI::Windows::UI::Notifications;
+
+    WRL::ComPtr<IInspectable> xmlInsp;
+    HRESULT hr = RoActivateInstance(
         WRL::Wrappers::HStringReference(
-            RuntimeClass_Windows_UI_Notifications_ToastNotification).Get(),
-        IID_PPV_ARGS(&toastFactory));
-    if (FAILED(hr)) {
-      NMLog(L"[NM] ShowAlarmToast: RoGetActivationFactory(ToastNotification) FAILED hr=" + std::to_wstring(hr));
-      goto done;
+            RuntimeClass_Windows_Data_Xml_Dom_XmlDocument).Get(),
+        &xmlInsp);
+    if (SUCCEEDED(hr)) {
+      WRL::ComPtr<ABI_XML::IXmlDocumentIO> xmlDocIO;
+      WRL::ComPtr<ABI_XML::IXmlDocument> xmlDoc;
+      if (SUCCEEDED(xmlInsp.As(&xmlDoc)) && SUCCEEDED(xmlInsp.As(&xmlDocIO))) {
+        hr = xmlDocIO->LoadXml(
+            WRL::Wrappers::HStringReference(xml.c_str(),
+                                            static_cast<UINT32>(xml.length())).Get());
+        if (SUCCEEDED(hr)) {
+          WRL::ComPtr<ABI_NOT::IToastNotificationFactory> factory;
+          hr = RoGetActivationFactory(
+              WRL::Wrappers::HStringReference(
+                  RuntimeClass_Windows_UI_Notifications_ToastNotification).Get(),
+              IID_PPV_ARGS(&factory));
+          if (SUCCEEDED(hr)) {
+            WRL::ComPtr<ABI_NOT::IToastNotification> toast;
+            hr = factory->CreateToastNotification(xmlDoc.Get(), &toast);
+            if (SUCCEEDED(hr)) {
+              // Get the notifier. Try with the AUMI registered by WinToast if
+              // available, otherwise fall back to the default app notifier.
+              WRL::ComPtr<ABI_NOT::IToastNotificationManagerStatics> manager;
+              hr = RoGetActivationFactory(
+                  WRL::Wrappers::HStringReference(
+                      RuntimeClass_Windows_UI_Notifications_ToastNotificationManager).Get(),
+                  IID_PPV_ARGS(&manager));
+              if (SUCCEEDED(hr)) {
+                WRL::ComPtr<ABI_NOT::IToastNotifier> notifier;
+                // Use the same AUMI as ScheduleOsToast if WinToast is ready.
+                std::wstring aumi = wintoast_initialized_
+                    ? WinToast::instance()->appUserModelId()
+                    : L"";
+                if (!aumi.empty()) {
+                  hr = manager->CreateToastNotifierWithId(
+                      WRL::Wrappers::HStringReference(
+                          aumi.c_str(), static_cast<UINT32>(aumi.length())).Get(),
+                      notifier.GetAddressOf());
+                } else {
+                  hr = manager->CreateToastNotifier(notifier.GetAddressOf());
+                }
+                if (SUCCEEDED(hr) && notifier) {
+                  hr = notifier->Show(toast.Get());
+                  shown = SUCCEEDED(hr);
+                  OutputDebugStringW((L"[NM] ShowAlarmToast: WinRT notifier->Show " +
+                      std::wstring(shown ? L"SUCCESS" : L"FAILED hr=0x") +
+                      (!shown ? [hr]() { wchar_t buf[20]; swprintf_s(buf, L"%08X", (unsigned)hr); return std::wstring(buf); }() : L"") +
+                      L"\n").c_str());
+                }
+              }
+            }
+          }
+        }
+      }
     }
-    WRL::ComPtr<ABI_NOT::IToastNotification> toast;
-    hr = toastFactory->CreateToastNotification(xmlDoc.Get(), &toast);
-    if (FAILED(hr)) {
-      NMLog(L"[NM] ShowAlarmToast: CreateToastNotification FAILED hr=" + std::to_wstring(hr));
-      goto done;
-    }
-
-    // Get IToastNotifier.
-    WRL::ComPtr<ABI_NOT::IToastNotificationManagerStatics> manager;
-    hr = RoGetActivationFactory(
-        WRL::Wrappers::HStringReference(
-            RuntimeClass_Windows_UI_Notifications_ToastNotificationManager).Get(),
-        IID_PPV_ARGS(&manager));
-    if (FAILED(hr)) {
-      NMLog(L"[NM] ShowAlarmToast: RoGetActivationFactory(Manager) FAILED hr=" + std::to_wstring(hr));
-      goto done;
-    }
-
-    // Try with explicit AUMI first (requires Start Menu shortcut).
-    WRL::ComPtr<ABI_NOT::IToastNotifier> notifier;
-    hr = manager->CreateToastNotifierWithId(
-        WRL::Wrappers::HStringReference(
-            aumi.c_str(), static_cast<UINT32>(aumi.length())).Get(),
-        notifier.GetAddressOf());
-    if (FAILED(hr)) {
-      NMLog(L"[NM] ShowAlarmToast: CreateToastNotifierWithId FAILED hr=" +
-            std::to_wstring(hr) + L" retrying with default notifier");
-      hr = manager->CreateToastNotifier(notifier.GetAddressOf());
-    }
-    if (FAILED(hr) || !notifier) {
-      NMLog(L"[NM] ShowAlarmToast: both notifier attempts FAILED hr=" + std::to_wstring(hr));
-      goto done;
-    }
-
-    hr = notifier->Show(toast.Get());
-    shown = SUCCEEDED(hr);
-    NMLog(std::wstring(L"[NM] ShowAlarmToast: Show ") +
-          (shown ? L"SUCCESS" : (L"FAILED hr=" + std::to_wstring(hr))));
   }
 
-done:
+  // Final fallback: use WinToast (requires being on a thread with COM).
   if (!shown) {
-    NMLog(L"[NM] ShowAlarmToast: WinRT path failed - trying WinToast on this thread");
-    // Reset flag so InitializeWinToast retries on this thread.
-    wintoast_initialized_ = false;
+    NMLog(L"[NM] ShowAlarmToast: WinRT path failed, trying WinToast fallback");
     if (InitializeWinToast()) {
       WinToastTemplate templ(WinToastTemplate::Text02);
       templ.setTextField(StringToWString(t), WinToastTemplate::FirstLine);
@@ -2270,17 +2106,19 @@ done:
         templ.setAudioPath(WinToastTemplate::AudioSystemFile::Alarm);
         templ.setAudioOption(WinToastTemplate::Loop);
       }
-      auto handler = new WinToastHandler(0, [](int){}, [](){}, [](){});
+      auto handler = new WinToastHandler(0, [](int) {}, []() {}, []() {});
       WinToast::WinToastError err;
-      INT64 tid = WinToast::instance()->showToast(templ, handler, &err);
-      NMLog(L"[NM] ShowAlarmToast: WinToast id=" + std::to_wstring(tid) +
-            L" err=" + std::to_wstring(static_cast<int>(err)));
+      INT64 toastId = WinToast::instance()->showToast(templ, handler, &err);
+      OutputDebugStringW((L"[NM] ShowAlarmToast: WinToast showToast returned " +
+          std::to_wstring(toastId) + L" err=" + std::to_wstring((int)err) + L"\n").c_str());
     } else {
-      NMLog(L"[NM] ShowAlarmToast: WinToast fallback also FAILED");
+      NMLog(L"[NM] ShowAlarmToast: WinToast fallback also FAILED (could not initialize)");
     }
   }
 
-  if (SUCCEEDED(hrCo)) CoUninitialize();
+  if (comInitHere && SUCCEEDED(hrCo)) {
+    CoUninitialize();
+  }
 }
 
 void NotificationMasterPlugin::StartScheduledWinThread(

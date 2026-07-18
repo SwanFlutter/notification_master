@@ -12,6 +12,7 @@ class _SimplePollingPageState extends State<SimplePollingPage> {
   final NotificationMaster _notificationMaster = NotificationMaster();
   bool _isPollingActive = false;
   bool _isForegroundActive = false;
+  bool _isDaemonActive = false;
   String _statusMessage = 'Notification service is not active';
 
   // Default polling URL - using a mock API that always returns a valid response
@@ -24,7 +25,22 @@ class _SimplePollingPageState extends State<SimplePollingPage> {
   void initState() {
     super.initState();
     _checkServiceStatus();
+    _checkDaemonStatus();
     _createNotificationChannels();
+  }
+
+  // Check if the standalone background poller daemon is running.
+  Future<void> _checkDaemonStatus() async {
+    try {
+      final running = await _notificationMaster.isBackgroundPollingRunning();
+      if (!mounted) return;
+      setState(() {
+        _isDaemonActive = running;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isDaemonActive = false);
+    }
   }
 
   // Check if any notification service is active
@@ -277,6 +293,77 @@ class _SimplePollingPageState extends State<SimplePollingPage> {
     }
   }
 
+  // Toggle the standalone background poller daemon.
+  Future<void> _toggleDaemon() async {
+    if (_isDaemonActive) {
+      await _stopDaemon();
+    } else {
+      await _startDaemon();
+    }
+  }
+
+  // Start the standalone background poller (own process, survives app close).
+  Future<void> _startDaemon() async {
+    final hasPermission = await _notificationMaster
+        .checkNotificationPermission();
+    if (!hasPermission) {
+      if (!mounted) return;
+      final granted = await _notificationMaster.requestNotificationPermission();
+      if (!granted) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Notification permission not granted')),
+        );
+        return;
+      }
+    }
+
+    final success = await _notificationMaster.startBackgroundPollingService(
+      pollingUrl: _pollingUrl,
+      intervalMinutes: _intervalMinutes,
+    );
+
+    if (!mounted) return;
+
+    await _checkDaemonStatus();
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Background poller started! It keeps polling even after the app is closed. '
+            'Logs are written next to the app .exe (notification_master_poller.log).',
+          ),
+          duration: Duration(seconds: 6),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Failed to start background poller. Make sure the app is built '
+            '(daemon .exe must exist next to the app).',
+          ),
+        ),
+      );
+    }
+  }
+
+  // Stop the standalone background poller.
+  Future<void> _stopDaemon() async {
+    final success = await _notificationMaster.stopBackgroundPollingService();
+    if (!mounted) return;
+    await _checkDaemonStatus();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          success
+              ? 'Background poller stopped!'
+              : 'Failed to stop background poller.',
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -284,224 +371,291 @@ class _SimplePollingPageState extends State<SimplePollingPage> {
         title: const Text('Simple HTTP Notification'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Status section
-              Container(
-                padding: const EdgeInsets.all(16.0),
-                decoration: BoxDecoration(
-                  color: _isForegroundActive
-                      ? Colors.green.shade100
-                      : _isPollingActive
-                      ? Colors.blue.shade100
-                      : Colors.grey.shade200,
-                  borderRadius: BorderRadius.circular(8.0),
-                  border: Border.all(
-                    color: _isForegroundActive
-                        ? Colors.green.shade300
-                        : _isPollingActive
-                        ? Colors.blue.shade300
-                        : Colors.grey.shade300,
+      body: SingleChildScrollView(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.arrow_back),
+                  label: const Text('Back to examples'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.grey.shade700,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
                   ),
                 ),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          _isForegroundActive
-                              ? Icons.notifications_active
-                              : _isPollingActive
-                              ? Icons.notifications
-                              : Icons.notifications_off,
-                          color: _isForegroundActive
-                              ? Colors.green.shade800
-                              : _isPollingActive
-                              ? Colors.blue.shade800
-                              : Colors.grey.shade800,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          _isForegroundActive
-                              ? 'Foreground Service Active'
-                              : _isPollingActive
-                              ? 'Background Polling Active'
-                              : 'Notification Service Inactive',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+
+                const SizedBox(height: 24),
+
+                // Status section
+                Container(
+                  padding: const EdgeInsets.all(16.0),
+                  decoration: BoxDecoration(
+                    color: _isForegroundActive
+                        ? Colors.green.shade100
+                        : _isPollingActive
+                        ? Colors.blue.shade100
+                        : Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(8.0),
+                    border: Border.all(
+                      color: _isForegroundActive
+                          ? Colors.green.shade300
+                          : _isPollingActive
+                          ? Colors.blue.shade300
+                          : Colors.grey.shade300,
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            _isForegroundActive
+                                ? Icons.notifications_active
+                                : _isPollingActive
+                                ? Icons.notifications
+                                : Icons.notifications_off,
                             color: _isForegroundActive
                                 ? Colors.green.shade800
                                 : _isPollingActive
                                 ? Colors.blue.shade800
                                 : Colors.grey.shade800,
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      _statusMessage,
-                      style: TextStyle(
-                        color: _isForegroundActive
-                            ? Colors.green.shade800
-                            : _isPollingActive
-                            ? Colors.blue.shade800
-                            : Colors.grey.shade800,
+                          const SizedBox(width: 8),
+                          Text(
+                            _isForegroundActive
+                                ? 'Foreground Service Active'
+                                : _isPollingActive
+                                ? 'Background Polling Active'
+                                : 'Notification Service Inactive',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: _isForegroundActive
+                                  ? Colors.green.shade800
+                                  : _isPollingActive
+                                  ? Colors.blue.shade800
+                                  : Colors.grey.shade800,
+                            ),
+                          ),
+                        ],
                       ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
+                      const SizedBox(height: 8),
+                      Text(
+                        _statusMessage,
+                        style: TextStyle(
+                          color: _isForegroundActive
+                              ? Colors.green.shade800
+                              : _isPollingActive
+                              ? Colors.blue.shade800
+                              : Colors.grey.shade800,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
 
-              const SizedBox(height: 32),
+                const SizedBox(height: 32),
 
-              // Background polling button
-              ElevatedButton.icon(
-                onPressed: _toggleBackgroundPolling,
-                icon: Icon(
-                  _isPollingActive ? Icons.stop : Icons.play_arrow,
-                  color: _isPollingActive ? Colors.red : Colors.white,
-                ),
-                label: Text(
-                  _isPollingActive
-                      ? 'Stop Background Polling'
-                      : 'Start Background Polling',
-                  style: TextStyle(
+                // Background polling button
+                ElevatedButton.icon(
+                  onPressed: _toggleBackgroundPolling,
+                  icon: Icon(
+                    _isPollingActive ? Icons.stop : Icons.play_arrow,
                     color: _isPollingActive ? Colors.red : Colors.white,
                   ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _isPollingActive
-                      ? Colors.white
-                      : Colors.blue,
-                  foregroundColor: _isPollingActive ? Colors.red : Colors.white,
-                  side: _isPollingActive
-                      ? const BorderSide(color: Colors.red)
-                      : null,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 16,
+                  label: Text(
+                    _isPollingActive
+                        ? 'Stop Background Polling'
+                        : 'Start Background Polling',
+                    style: TextStyle(
+                      color: _isPollingActive ? Colors.red : Colors.white,
+                    ),
                   ),
-                  minimumSize: const Size(double.infinity, 50),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _isPollingActive
+                        ? Colors.white
+                        : Colors.blue,
+                    foregroundColor: _isPollingActive
+                        ? Colors.red
+                        : Colors.white,
+                    side: _isPollingActive
+                        ? const BorderSide(color: Colors.red)
+                        : null,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 16,
+                    ),
+                    minimumSize: const Size(double.infinity, 50),
+                  ),
                 ),
-              ),
 
-              const SizedBox(height: 16),
+                const SizedBox(height: 16),
 
-              // Foreground service button
-              ElevatedButton.icon(
-                onPressed: _toggleForegroundService,
-                icon: Icon(
-                  _isForegroundActive ? Icons.stop : Icons.play_arrow,
-                  color: _isForegroundActive ? Colors.red : Colors.white,
-                ),
-                label: Text(
-                  _isForegroundActive
-                      ? 'Stop Foreground Service'
-                      : 'Start Foreground Service',
-                  style: TextStyle(
+                // Foreground service button
+                ElevatedButton.icon(
+                  onPressed: _toggleForegroundService,
+                  icon: Icon(
+                    _isForegroundActive ? Icons.stop : Icons.play_arrow,
                     color: _isForegroundActive ? Colors.red : Colors.white,
                   ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _isForegroundActive
-                      ? Colors.white
-                      : Colors.green,
-                  foregroundColor: _isForegroundActive
-                      ? Colors.red
-                      : Colors.white,
-                  side: _isForegroundActive
-                      ? const BorderSide(color: Colors.red)
-                      : null,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 16,
+                  label: Text(
+                    _isForegroundActive
+                        ? 'Stop Foreground Service'
+                        : 'Start Foreground Service',
+                    style: TextStyle(
+                      color: _isForegroundActive ? Colors.red : Colors.white,
+                    ),
                   ),
-                  minimumSize: const Size(double.infinity, 50),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _isForegroundActive
+                        ? Colors.white
+                        : Colors.green,
+                    foregroundColor: _isForegroundActive
+                        ? Colors.red
+                        : Colors.white,
+                    side: _isForegroundActive
+                        ? const BorderSide(color: Colors.red)
+                        : null,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 16,
+                    ),
+                    minimumSize: const Size(double.infinity, 50),
+                  ),
                 ),
-              ),
 
-              const SizedBox(height: 32),
+                const SizedBox(height: 16),
 
-              // Information section
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.amber.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.amber.shade200),
+                // Standalone background poller (daemon) button — keeps polling even
+                // after the app is fully closed because it runs in its own process.
+                ElevatedButton.icon(
+                  onPressed: _toggleDaemon,
+                  icon: Icon(
+                    _isDaemonActive ? Icons.stop : Icons.cloud_download,
+                    color: _isDaemonActive ? Colors.red : Colors.white,
+                  ),
+                  label: Text(
+                    _isDaemonActive
+                        ? 'Stop Background Poller (daemon)'
+                        : 'Start Background Poller (daemon)',
+                    style: TextStyle(
+                      color: _isDaemonActive ? Colors.red : Colors.white,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _isDaemonActive
+                        ? Colors.white
+                        : Colors.deepPurple,
+                    foregroundColor: _isDaemonActive
+                        ? Colors.red
+                        : Colors.white,
+                    side: _isDaemonActive
+                        ? const BorderSide(color: Colors.red)
+                        : null,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 16,
+                    ),
+                    minimumSize: const Size(double.infinity, 50),
+                  ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.info_outline, color: Colors.amber),
-                        SizedBox(width: 8),
-                        Text(
-                          'Information',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
+
+                const SizedBox(height: 32),
+
+                // Information section
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.amber.shade200),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.info_outline, color: Colors.amber),
+                          SizedBox(width: 8),
+                          Text(
+                            'Information',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        '• Background polling may stop when the app is closed',
+                        style: TextStyle(fontSize: 14),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        '• Foreground service keeps running even when the app is closed',
+                        style: TextStyle(fontSize: 14),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        '• Foreground service shows a persistent notification',
+                        style: TextStyle(fontSize: 14),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        '• Background Poller (daemon) is a separate process: keeps polling & toasting after the app is closed. Logs: notification_master_poller.log next to the .exe.',
+                        style: TextStyle(fontSize: 14),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Current server URL: $_pollingUrl',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
+                      ),
+                      const Text(
+                        'Note: Using a mock API for testing. In a real app, you would use your own server.',
+                        style: TextStyle(fontSize: 12, color: Colors.red),
+                      ),
+                      Text(
+                        'Polling interval: $_intervalMinutes minute(s)',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton.icon(
+                        onPressed: _showTestNotification,
+                        icon: const Icon(Icons.notifications_active),
+                        label: const Text(
+                          'Send Test Notification with Navigation',
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.amber,
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      '• Background polling may stop when the app is closed',
-                      style: TextStyle(fontSize: 14),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      '• Foreground service keeps running even when the app is closed',
-                      style: TextStyle(fontSize: 14),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      '• Foreground service shows a persistent notification',
-                      style: TextStyle(fontSize: 14),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Current server URL: $_pollingUrl',
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-                    const Text(
-                      'Note: Using a mock API for testing. In a real app, you would use your own server.',
-                      style: TextStyle(fontSize: 12, color: Colors.red),
-                    ),
-                    Text(
-                      'Polling interval: $_intervalMinutes minute(s)',
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton.icon(
-                      onPressed: _showTestNotification,
-                      icon: const Icon(Icons.notifications_active),
-                      label: const Text(
-                        'Send Test Notification with Navigation',
                       ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.amber,
-                        foregroundColor: Colors.black,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

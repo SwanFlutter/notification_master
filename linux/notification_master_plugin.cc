@@ -12,6 +12,10 @@
 #include <chrono>
 #include <atomic>
 #include <iostream>
+#include <map>
+#include <mutex>
+#include <signal.h>
+#include <ctime>
 
 #include "notification_master_plugin_private.h"
 
@@ -33,6 +37,27 @@ G_DEFINE_TYPE(NotificationMasterPlugin, notification_master_plugin, g_object_get
 // Forward declarations
 static void start_polling_service(NotificationMasterPlugin* self, const gchar* polling_url, gint interval_minutes);
 static void stop_polling_service(NotificationMasterPlugin* self);
+
+// Scheduled (background) notification tracking for Linux. A detached child
+// process (see scheduleNotification) survives the app closing; we keep its pid
+// so it can be cancelled during the same session.
+static std::mutex g_scheduled_mutex;
+static std::map<int, GPid> g_scheduled_pids;
+
+// Shell-escape a string for use inside single quotes (sh -c command).
+static gchar* sh_quote_string(const gchar* s) {
+  if (!s) return g_strdup("''");
+  GString* out = g_string_new("'");
+  for (const gchar* p = s; *p; ++p) {
+    if (*p == '\'') {
+      g_string_append(out, "'\\''");
+    } else {
+      g_string_append_c(out, *p);
+    }
+  }
+  g_string_append_c(out, '\'');
+  return g_string_free(out, FALSE);
+}
 
 // Show a simple notification using libnotify
 static gboolean show_notification(const gchar* title, const gchar* message, const gchar* channel_id) {
@@ -363,6 +388,115 @@ static void notification_master_plugin_handle_method_call(
     }
   } else if (strcmp(method, "getSubscribedTopics") == 0) {
     g_autoptr(FlValue) list = get_subscribed_topics();
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(list));
+  } else if (strcmp(method, "scheduleNotification") == 0) {
+    if (fl_value_get_type(args) == FL_VALUE_TYPE_MAP) {
+      FlValue* id_value = fl_value_lookup_string(args, "id");
+      FlValue* title_value = fl_value_lookup_string(args, "title");
+      FlValue* message_value = fl_value_lookup_string(args, "message");
+      FlValue* epoch_value = fl_value_lookup_string(args, "scheduledEpochMillis");
+      FlValue* alarm_value = fl_value_lookup_string(args, "alarmSound");
+
+      if (title_value && message_value && id_value && epoch_value) {
+        gint id = fl_value_get_int(id_value);
+        gint64 epoch_millis = fl_value_get_int(epoch_value);
+        gboolean alarm_sound = alarm_value && fl_value_get_type(alarm_value) == FL_VALUE_TYPE_BOOL
+            ? fl_value_get_bool(alarm_value) : FALSE;
+        const gchar* title = fl_value_get_string(title_value);
+        const gchar* message = fl_value_get_string(message_value);
+
+        gint64 now_secs = (gint64)time(nullptr);
+        gint64 target_secs = epoch_millis / 1000;
+        gint64 delay = target_secs - now_secs;
+        if (delay < 0) delay = 0;
+
+        gboolean ok = FALSE;
+        if (delay == 0) {
+          show_notification(title, message, "default");
+          ok = TRUE;
+        } else {
+          // Spawn a fully detached process (setsid) that sleeps then fires
+          // notify-send. This survives the app being fully closed.
+          gchar* escaped_title = sh_quote_string(title);
+          gchar* escaped_message = sh_quote_string(message);
+          gchar* command = g_strdup_printf(
+              "sleep %lld && notify-send %s %s",
+              (long long)delay, escaped_title, escaped_message);
+          gchar* argv[] = { const_cast<gchar*>("setsid"),
+                            const_cast<gchar*>("sh"),
+                            const_cast<gchar*>("-c"),
+                            command, nullptr };
+          GPid pid = 0;
+          GError* spawn_error = nullptr;
+          gboolean spawned = g_spawn_async(
+              nullptr, argv, nullptr,
+              (GSpawnFlags)(G_SPAWN_SEARCH_PATH | G_SPAWN_STDOUT_TO_DEV_NULL |
+                            G_SPAWN_STDERR_TO_DEV_NULL | G_SPAWN_DO_NOT_REAP_CHILD),
+              nullptr, nullptr, &pid, &spawn_error);
+          if (spawned) {
+            std::lock_guard<std::mutex> lock(g_scheduled_mutex);
+            g_scheduled_pids[id] = pid;
+            ok = TRUE;
+          } else {
+            g_print("Failed to schedule notification: %s\n",
+                    spawn_error ? spawn_error->message : "unknown");
+            if (spawn_error) g_error_free(spawn_error);
+            // Fall back to showing immediately.
+            show_notification(title, message, "default");
+            ok = TRUE;
+          }
+          g_free(escaped_title);
+          g_free(escaped_message);
+          g_free(command);
+        }
+        (void)alarm_sound;
+        g_autoptr(FlValue) result = fl_value_new_bool(ok);
+        response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
+      } else {
+        response = FL_METHOD_RESPONSE(fl_method_error_response_new(
+            "INVALID_ARGUMENTS", "id, title, message and scheduledEpochMillis are required", nullptr));
+      }
+    } else {
+      response = FL_METHOD_RESPONSE(fl_method_error_response_new(
+          "INVALID_ARGUMENTS", "Invalid arguments for scheduleNotification", nullptr));
+    }
+  } else if (strcmp(method, "cancelScheduledNotification") == 0) {
+    if (fl_value_get_type(args) == FL_VALUE_TYPE_MAP) {
+      FlValue* id_value = fl_value_lookup_string(args, "id");
+      if (id_value) {
+        gint id = fl_value_get_int(id_value);
+        std::lock_guard<std::mutex> lock(g_scheduled_mutex);
+        auto it = g_scheduled_pids.find(id);
+        if (it != g_scheduled_pids.end()) {
+          kill(it->second, SIGKILL);
+          g_spawn_close_pid(it->second);
+          g_scheduled_pids.erase(it);
+        }
+        g_autoptr(FlValue) result = fl_value_new_bool(TRUE);
+        response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
+      } else {
+        response = FL_METHOD_RESPONSE(fl_method_error_response_new(
+            "INVALID_ARGUMENTS", "id is required", nullptr));
+      }
+    } else {
+      response = FL_METHOD_RESPONSE(fl_method_error_response_new(
+          "INVALID_ARGUMENTS", "Invalid arguments for cancelScheduledNotification", nullptr));
+    }
+  } else if (strcmp(method, "cancelAllScheduledNotifications") == 0) {
+    std::lock_guard<std::mutex> lock(g_scheduled_mutex);
+    for (auto& kv : g_scheduled_pids) {
+      kill(kv.second, SIGKILL);
+      g_spawn_close_pid(kv.second);
+    }
+    g_scheduled_pids.clear();
+    g_autoptr(FlValue) result = fl_value_new_bool(TRUE);
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
+  } else if (strcmp(method, "getPendingScheduledNotifications") == 0) {
+    g_autoptr(FlValue) list = fl_value_new_list();
+    std::lock_guard<std::mutex> lock(g_scheduled_mutex);
+    for (auto& kv : g_scheduled_pids) {
+      fl_value_append_take(list, fl_value_new_int(kv.first));
+    }
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(list));
   } else {
     response = FL_METHOD_RESPONSE(fl_method_not_implemented_response_new());

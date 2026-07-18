@@ -9,6 +9,7 @@ import android.graphics.Color
 import android.os.Build
 import android.util.Log
 import androidx.core.app.ActivityCompat
+import org.json.JSONObject
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -228,6 +229,38 @@ class NotificationMasterPlugin: FlutterPlugin, MethodCallHandler, ActivityAware,
         val extraData = call.argument<Map<String, Any>>("extraData")
 
         showStyledNotification(title, message, channelId, targetScreen, extraData, result)
+      }
+      "scheduleNotification" -> {
+        val id = call.argument<Int>("id") ?: 0
+        val title = call.argument<String>("title") ?: "Notification"
+        val message = call.argument<String>("message") ?: ""
+        // Epoch millis are always decoded as Long on Android.
+        val scheduledEpochMillis = call.argument<Long>("scheduledEpochMillis") ?: 0L
+        val channelId = call.argument<String>("channelId")
+        val priorityValue = call.argument<Any>("priority")
+        val priority = when (priorityValue) {
+          is Int -> priorityValue
+          is Long -> priorityValue.toInt()
+          else -> NotificationCompat.PRIORITY_DEFAULT
+        }
+        val alarmSound = call.argument<Boolean>("alarmSound") ?: false
+        val targetScreen = call.argument<String>("targetScreen")
+        val extraData = call.argument<Map<String, Any>>("extraData")
+
+        scheduleNotification(
+          id, title, message, scheduledEpochMillis, channelId, priority,
+          alarmSound, targetScreen, extraData, result
+        )
+      }
+      "cancelScheduledNotification" -> {
+        val id = call.argument<Int>("id") ?: 0
+        cancelScheduledNotification(id, result)
+      }
+      "cancelAllScheduledNotifications" -> {
+        cancelAllScheduledNotifications(result)
+      }
+      "getPendingScheduledNotifications" -> {
+        getPendingScheduledNotifications(result)
       }
       "getDeviceToken" -> {
         getDeviceToken(result)
@@ -768,6 +801,202 @@ class NotificationMasterPlugin: FlutterPlugin, MethodCallHandler, ActivityAware,
   }
 
   /**
+   * Schedule a notification to be delivered by the OS AlarmManager at a fixed
+   * time, even when the app is closed. The alarm is persisted so it can be
+   * re-armed after a device reboot (see [BootCompletedReceiver]).
+   */
+  private fun scheduleNotification(
+    id: Int,
+    title: String,
+    message: String,
+    scheduledEpochMillis: Long,
+    channelId: String?,
+    priority: Int,
+    alarmSound: Boolean,
+    targetScreen: String?,
+    extraData: Map<String, Any>?,
+    result: Result
+  ) {
+    try {
+      val effectiveChannelId = channelId ?: if (alarmSound) {
+        NotificationHelper.HIGH_PRIORITY_CHANNEL_ID
+      } else {
+        NotificationHelper.DEFAULT_CHANNEL_ID
+      }
+      val effectivePriority = if (alarmSound) {
+        androidx.core.app.NotificationCompat.PRIORITY_HIGH
+      } else {
+        priority
+      }
+
+      val alarmManager =
+        context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+
+      val intent = Intent(context, ScheduledNotificationReceiver::class.java).apply {
+        action = ScheduledNotificationReceiver.ACTION_SCHEDULED
+        putExtra(ScheduledNotificationReceiver.EXTRA_ID, id)
+        putExtra(ScheduledNotificationReceiver.EXTRA_TITLE, title)
+        putExtra(ScheduledNotificationReceiver.EXTRA_MESSAGE, message)
+        putExtra(ScheduledNotificationReceiver.EXTRA_CHANNEL_ID, effectiveChannelId)
+        putExtra(ScheduledNotificationReceiver.EXTRA_PRIORITY, effectivePriority)
+        putExtra(ScheduledNotificationReceiver.EXTRA_TARGET_SCREEN, targetScreen)
+        putExtra(
+          ScheduledNotificationReceiver.EXTRA_EXTRA_DATA,
+          mapToJson(extraData)
+        )
+      }
+
+      val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        android.app.PendingIntent.FLAG_IMMUTABLE or
+          android.app.PendingIntent.FLAG_UPDATE_CURRENT
+      } else {
+        android.app.PendingIntent.FLAG_UPDATE_CURRENT
+      }
+      val pendingIntent = android.app.PendingIntent.getBroadcast(
+        context, id, intent, flags
+      )
+
+      val triggerAt = if (scheduledEpochMillis > 0) scheduledEpochMillis else 0L
+
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+        !alarmManager.canScheduleExactAlarms()
+      ) {
+        // Exact alarms permission not granted — return a specific error code so
+        // the Dart side can prompt the user to grant it in Settings.
+        Log.w(TAG, "SCHEDULE_EXACT_ALARM not granted — cannot schedule exact alarm id=$id")
+        result.error(
+          "EXACT_ALARM_PERMISSION_DENIED",
+          "Exact alarm permission not granted. Direct the user to Settings → Apps → " +
+            "${context.packageName} → Special app access → Alarms & reminders.",
+          null
+        )
+        return
+      } else {
+        alarmManager.setExactAndAllowWhileIdle(
+          android.app.AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent
+        )
+      }
+
+      ScheduledNotificationStore.save(
+        context,
+        ScheduledItem(
+          id = id,
+          title = title,
+          message = message,
+          channelId = effectiveChannelId,
+          priority = effectivePriority,
+          targetScreen = targetScreen,
+          extraDataJson = mapToJson(extraData),
+          triggerAtMillis = triggerAt
+        )
+      )
+
+      result.success(true)
+    } catch (e: Exception) {
+      Log.e(TAG, "Error scheduling notification", e)
+      result.error("SCHEDULE_ERROR", e.message, null)
+    }
+  }
+
+  /**
+   * Cancel a previously scheduled notification by id.
+   */
+  private fun cancelScheduledNotification(id: Int, result: Result) {
+    try {
+      val alarmManager =
+        context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+
+      val intent = Intent(context, ScheduledNotificationReceiver::class.java).apply {
+        action = ScheduledNotificationReceiver.ACTION_SCHEDULED
+        putExtra(ScheduledNotificationReceiver.EXTRA_ID, id)
+      }
+
+      val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        android.app.PendingIntent.FLAG_IMMUTABLE or
+          android.app.PendingIntent.FLAG_NO_CREATE
+      } else {
+        android.app.PendingIntent.FLAG_NO_CREATE
+      }
+      val pendingIntent = android.app.PendingIntent.getBroadcast(
+        context, id, intent, flags
+      )
+      if (pendingIntent != null) {
+        alarmManager.cancel(pendingIntent)
+        pendingIntent.cancel()
+      }
+
+      ScheduledNotificationStore.remove(context, id)
+      result.success(true)
+    } catch (e: Exception) {
+      Log.e(TAG, "Error cancelling scheduled notification", e)
+      result.error("SCHEDULE_ERROR", e.message, null)
+    }
+  }
+
+  /**
+   * Cancel all notifications scheduled with [scheduleNotification].
+   */
+  private fun cancelAllScheduledNotifications(result: Result) {
+    try {
+      val alarmManager =
+        context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+
+      for (item in ScheduledNotificationStore.all(context)) {
+        val intent = Intent(context, ScheduledNotificationReceiver::class.java).apply {
+          action = ScheduledNotificationReceiver.ACTION_SCHEDULED
+          putExtra(ScheduledNotificationReceiver.EXTRA_ID, item.id)
+        }
+        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+          android.app.PendingIntent.FLAG_IMMUTABLE or
+            android.app.PendingIntent.FLAG_NO_CREATE
+        } else {
+          android.app.PendingIntent.FLAG_NO_CREATE
+        }
+        val pendingIntent = android.app.PendingIntent.getBroadcast(
+          context, item.id, intent, flags
+        )
+        if (pendingIntent != null) {
+          alarmManager.cancel(pendingIntent)
+          pendingIntent.cancel()
+        }
+      }
+
+      ScheduledNotificationStore.removeAll(context)
+      result.success(true)
+    } catch (e: Exception) {
+      Log.e(TAG, "Error cancelling all scheduled notifications", e)
+      result.error("SCHEDULE_ERROR", e.message, null)
+    }
+  }
+
+  /**
+   * Return the ids of notifications scheduled with [scheduleNotification].
+   */
+  private fun getPendingScheduledNotifications(result: Result) {
+    try {
+      val ids = ScheduledNotificationStore.all(context).map { it.id }
+      result.success(ids)
+    } catch (e: Exception) {
+      Log.e(TAG, "Error getting pending scheduled notifications", e)
+      result.error("SCHEDULE_ERROR", e.message, null)
+    }
+  }
+
+  /** Convert a Dart [Map] to a JSON string for persistence. */
+  private fun mapToJson(map: Map<String, Any>?): String? {
+    if (map == null) return null
+    return try {
+      val obj = JSONObject()
+      for ((k, v) in map) {
+        obj.put(k, v)
+      }
+      obj.toString()
+    } catch (e: Exception) {
+      null
+    }
+  }
+
+  /**
    * Set the active notification service and disable other services
    */
   private fun setActiveNotificationService(serviceType: Int) {
@@ -832,7 +1061,7 @@ class NotificationMasterPlugin: FlutterPlugin, MethodCallHandler, ActivityAware,
         title = title,
         message = message,
         channelId = NotificationHelper.DEFAULT_CHANNEL_ID,
-        contentIntent = null,
+        intent = null,
         priority = androidx.core.app.NotificationCompat.PRIORITY_DEFAULT,
         autoCancel = true
       )

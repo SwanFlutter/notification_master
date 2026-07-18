@@ -136,9 +136,53 @@ class MockNotificationMasterPlatform
   Future<List<String>> getSubscribedTopics() =>
       Future.value(List.unmodifiable(_topics));
 
+  @override
+  Future<bool> scheduleNotification({
+    required int id,
+    required String title,
+    required String message,
+    required int scheduledEpochMillis,
+    String? channelId,
+    NotificationImportance? importance,
+    bool alarmSound = false,
+    String? targetScreen,
+    Map<String, dynamic>? extraData,
+  }) => Future.value(true);
+
+  @override
+  Future<bool> cancelScheduledNotification(int id) => Future.value(true);
+
+  @override
+  Future<bool> cancelAllScheduledNotifications() => Future.value(true);
+
+  @override
+  Future<List<int>> getPendingScheduledNotifications() =>
+      Future.value(const []);
+
   // ── Helpers ────────────────────────────────────────────────────────────
   void setDeviceToken(String? token) => _deviceToken = token;
   void clearTopics() => _topics.clear();
+
+  @override
+  Future<bool> isBackgroundPollingRunning() {
+    // TODO: implement isBackgroundPollingRunning
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<bool> startBackgroundPollingService({
+    required String pollingUrl,
+    int? intervalMinutes,
+  }) {
+    // TODO: implement startBackgroundPollingService
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<bool> stopBackgroundPollingService() {
+    // TODO: implement stopBackgroundPollingService
+    throw UnimplementedError();
+  }
 }
 
 // ── Tests ──────────────────────────────────────────────────────────────────

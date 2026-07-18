@@ -1,6 +1,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
   package="com.example.notification_master">
 
+  <!-- Allow scheduling exact (alarm-like) notifications -->
+  <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+  <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+  <uses-permission android:name="android.permission.WAKE_LOCK" />
+
   <application>
 
     <!-- Foreground service for continuous notification polling -->
@@ -26,6 +32,15 @@
       android:exported="false">
       <intent-filter>
         <action android:name="com.example.notification_master.NOTIFICATION_RECEIVED" />
+      </intent-filter>
+    </receiver>
+
+    <!-- Receiver for scheduled (background) notifications -->
+    <receiver
+      android:name=".ScheduledNotificationReceiver"
+      android:exported="false">
+      <intent-filter>
+        <action android:name="com.example.notification_master.SCHEDULED_NOTIFICATION" />
       </intent-filter>
     </receiver>
 

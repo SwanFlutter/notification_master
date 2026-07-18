@@ -395,4 +395,67 @@ class NotificationMasterWeb extends NotificationMasterPlatform {
     final part2 = ts.hashCode.toRadixString(16).padLeft(8, '0');
     return '$part1-$part2-4web-notification-master';
   }
+
+  // ── Scheduled notifications (best-effort, only while the tab is open) ──────
+
+  final Map<int, Timer> _scheduledTimers = {};
+
+  @override
+  Future<bool> scheduleNotification({
+    required int id,
+    required String title,
+    required String message,
+    required int scheduledEpochMillis,
+    String? channelId,
+    NotificationImportance? importance,
+    bool alarmSound = false,
+    String? targetScreen,
+    Map<String, dynamic>? extraData,
+  }) async {
+    try {
+      _scheduledTimers[id]?.cancel();
+      final delay =
+          scheduledEpochMillis - DateTime.now().millisecondsSinceEpoch;
+      if (delay <= 0) {
+        // Deliver immediately if the time has already passed.
+        if (web.Notification.permission == 'granted') {
+          web.Notification(title, web.NotificationOptions(body: message));
+        }
+        return true;
+      }
+      _scheduledTimers[id] = Timer(
+        Duration(milliseconds: delay),
+        () {
+          if (web.Notification.permission == 'granted') {
+            web.Notification(title, web.NotificationOptions(body: message));
+          }
+          _scheduledTimers.remove(id);
+        },
+      );
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  @override
+  Future<bool> cancelScheduledNotification(int id) async {
+    _scheduledTimers[id]?.cancel();
+    _scheduledTimers.remove(id);
+    return true;
+  }
+
+  @override
+  Future<bool> cancelAllScheduledNotifications() async {
+    for (final timer in _scheduledTimers.values) {
+      timer.cancel();
+    }
+    _scheduledTimers.clear();
+    return true;
+  }
+
+  @override
+  Future<List<int>> getPendingScheduledNotifications() async {
+    return _scheduledTimers.keys.toList();
+  }
 }
