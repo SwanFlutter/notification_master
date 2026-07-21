@@ -6,9 +6,9 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.media.RingtoneManager
 import android.os.Build
 import android.util.Log
-import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 
@@ -21,6 +21,9 @@ class CustomNotificationHelper(private val context: Context) {
     companion object {
         const val CUSTOM_CHANNEL_ID = "custom_styled_channel"
         const val CUSTOM_CHANNEL_NAME = "Custom Styled Notifications"
+        /** Windows-style heads-up / alarm channel (TYPE_ALARM). */
+        const val HEADS_UP_ALARM_CHANNEL_ID = "heads_up_alarm_channel"
+        const val HEADS_UP_ALARM_CHANNEL_NAME = "Heads-Up Alarms"
         private var notificationId = 5000
         
         fun getUniqueNotificationId(): Int = notificationId++
@@ -28,6 +31,7 @@ class CustomNotificationHelper(private val context: Context) {
 
     init {
         createCustomStyledChannel()
+        createHeadsUpAlarmChannel()
     }
 
     /**
@@ -52,6 +56,28 @@ class CustomNotificationHelper(private val context: Context) {
             notificationManager.createNotificationChannel(channel)
             
             Log.d("CustomNotificationHelper", "✅ Custom styled channel created")
+        }
+    }
+
+    private fun createHeadsUpAlarmChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+            val channel = NotificationChannel(
+                HEADS_UP_ALARM_CHANNEL_ID,
+                HEADS_UP_ALARM_CHANNEL_NAME,
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Windows-style heads-up / alarm alerts with long sound"
+                enableLights(true)
+                lightColor = Color.RED
+                enableVibration(true)
+                vibrationPattern = longArrayOf(0, 500, 250, 500, 250, 500)
+                setSound(alarmUri, null)
+                setShowBadge(true)
+            }
+            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            nm.createNotificationChannel(channel)
         }
     }
 
@@ -80,18 +106,22 @@ class CustomNotificationHelper(private val context: Context) {
             null
         }
 
-        // Build notification with custom layout
-        val builder = NotificationCompat.Builder(context, CUSTOM_CHANNEL_ID)
+        val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+            ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+
+        // Windows-style heads-up / Alarm: high priority + alarm sound
+        val builder = NotificationCompat.Builder(context, HEADS_UP_ALARM_CHANNEL_ID)
             .setSmallIcon(getNotificationIcon())
             .setContentTitle(title)
             .setContentText(message)
             .setPriority(NotificationCompat.PRIORITY_MAX)
-            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setAutoCancel(true)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setVibrate(longArrayOf(0, 300, 200, 300))
-            .setLights(Color.CYAN, 1000, 500)
-            .setStyle(NotificationCompat.DecoratedCustomViewStyle())
+            .setSound(alarmUri)
+            .setVibrate(longArrayOf(0, 500, 250, 500, 250, 500))
+            .setLights(Color.RED, 1000, 500)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(message))
 
         if (pendingIntent != null) {
             builder.setContentIntent(pendingIntent)

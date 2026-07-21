@@ -218,7 +218,9 @@ abstract class NotificationMasterPlatform extends PlatformInterface {
     String? targetScreen,
     Map<String, dynamic>? extraData,
   }) {
-    throw UnimplementedError('scheduleNotification() has not been implemented.');
+    throw UnimplementedError(
+      'scheduleNotification() has not been implemented.',
+    );
   }
 
   /// Cancel a previously scheduled notification by its [id].

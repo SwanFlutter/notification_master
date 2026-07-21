@@ -42,6 +42,16 @@ class NotificationHelper(private val context: Context) {
         const val SILENT_CHANNEL_NAME = "Silent Channel"
         const val SILENT_CHANNEL_DESCRIPTION = "Channel for silent notifications"
 
+        /**
+         * Alarm-style channel (Windows Alarm / clock-style).
+         * Uses [RingtoneManager.TYPE_ALARM] so the sound loops longer and is
+         * treated as an alarm rather than a normal notification chime.
+         */
+        const val ALARM_CHANNEL_ID = "notification_master_alarm_channel"
+        const val ALARM_CHANNEL_NAME = "Alarms & Reminders"
+        const val ALARM_CHANNEL_DESCRIPTION =
+            "Loud, long-duration alarm-style notifications (scheduled reminders)"
+
         // Notification IDs
         private var notificationId = 0
 
@@ -113,13 +123,94 @@ class NotificationHelper(private val context: Context) {
                 setSound(null, null)
             }
 
+            // Alarm channel — TYPE_ALARM sound (Windows-style Alarm Time)
+            val alarmSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+            val alarmChannel = NotificationChannel(
+                ALARM_CHANNEL_ID,
+                ALARM_CHANNEL_NAME,
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = ALARM_CHANNEL_DESCRIPTION
+                enableLights(true)
+                lightColor = Color.RED
+                enableVibration(true)
+                vibrationPattern = longArrayOf(0, 500, 250, 500, 250, 500)
+                setSound(alarmSoundUri, null)
+                setShowBadge(true)
+                lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+                setBypassDnd(false) // user can enable in channel settings manually
+            }
+
             // Register the channels with the system
             notificationManager.createNotificationChannels(
-                listOf(defaultChannel, highPriorityChannel, silentChannel)
+                listOf(defaultChannel, highPriorityChannel, silentChannel, alarmChannel)
             )
-            
-            // Log.d("NotificationHelper", "✅ Default notification channels created")
         }
+    }
+
+    /**
+     * Show an alarm-style notification (loud sound, high priority, CATEGORY_ALARM).
+     * Used by scheduled reminders when [alarmSound] is true.
+     */
+    fun showAlarmNotification(
+        title: String,
+        message: String,
+        channelId: String = ALARM_CHANNEL_ID,
+        intent: Intent? = null,
+        autoCancel: Boolean = true,
+        customId: Int? = null,
+        fullScreen: Boolean = true
+    ): Int {
+        val notificationId = customId ?: getUniqueNotificationId()
+
+        val pendingIntent = if (intent != null) {
+            val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            } else {
+                PendingIntent.FLAG_UPDATE_CURRENT
+            }
+            PendingIntent.getActivity(context, notificationId, intent, flags)
+        } else {
+            null
+        }
+
+        val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+            ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+
+        val builder = NotificationCompat.Builder(context, channelId)
+            .setSmallIcon(getNotificationIcon())
+            .setContentTitle(title)
+            .setContentText(message)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setAutoCancel(autoCancel)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setSound(alarmUri)
+            .setVibrate(longArrayOf(0, 500, 250, 500, 250, 500))
+            .setLights(Color.RED, 1000, 500)
+            .setDefaults(0) // explicit sound/vibrate above
+            .setStyle(NotificationCompat.BigTextStyle().bigText(message))
+            .setWhen(System.currentTimeMillis())
+            .setShowWhen(true)
+
+        if (pendingIntent != null) {
+            builder.setContentIntent(pendingIntent)
+            if (fullScreen) {
+                // Full-screen only when the screen is off / locked (alarm behavior)
+                builder.setFullScreenIntent(pendingIntent, true)
+            }
+        }
+
+        with(NotificationManagerCompat.from(context)) {
+            try {
+                notify(notificationId, builder.build())
+            } catch (e: SecurityException) {
+                Log.e("NotificationHelper", "Permission error showing alarm: ${e.message}")
+            }
+        }
+
+        return notificationId
     }
 
     /**

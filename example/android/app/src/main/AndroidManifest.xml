@@ -1,36 +1,45 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Required: Internet access for HTTP polling -->
+    <!--
+      Example host app — mirrors plugin permissions so the demo can exercise
+      local notifications, exact alarms, full-screen intents, and optional
+      background polling/foreground services.
+
+      User must still grant at runtime / in Settings where Android requires it:
+      - POST_NOTIFICATIONS (Android 13+)
+      - Alarms & reminders / SCHEDULE_EXACT_ALARM (Android 12+)
+      - Full-screen intent (Android 14+)
+      - Battery unrestricted (OEM / Settings — never auto-forced)
+      See agent.md.
+    -->
+
+    <!-- Network -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
-    <!-- Required for Android 13+ (API 33+): show notifications -->
+    <!-- Notifications -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-
-    <!-- Required: run a foreground service -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-
-    <!-- Required: foreground service type for HTTP data sync (polling) -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
-
-    <!-- Required: restart polling after device reboot -->
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-
-    <!-- Optional: vibrate on notification -->
     <uses-permission android:name="android.permission.VIBRATE" />
-
-    <!-- Optional: keep CPU awake during polling -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
-    <!-- Required for exact alarm scheduling (Android 12+ / API 31+) -->
-    <!-- SCHEDULE_EXACT_ALARM: user must grant via Settings → Apps → Special app access → Alarms & reminders -->
+    <!-- Exact alarm scheduling (Windows-style alarm time) -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-    <!-- USE_EXACT_ALARM: granted automatically on Android 13+ for alarm-clock apps (API 33+) -->
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+
+    <!-- Full-screen / call-style alerts -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+
+    <!-- Optional remote-delivery services (separate from local notifications) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
         android:label="notification_master_example"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true"
+        android:networkSecurityConfig="@xml/network_security_config">
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -40,11 +49,9 @@
             android:theme="@style/LaunchTheme"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
             android:windowSoftInputMode="adjustResize">
-            <!-- Specifies an Android theme to apply to this Activity as soon as
-                 the Android process has started. This theme is visible to the user
-                 while the Flutter UI initializes. After that, this theme continues
-                 to determine the Window background behind the Flutter UI. -->
             <meta-data
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
@@ -54,22 +61,25 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        <!-- Don't delete the meta-data below.
-             This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
     </application>
 
-    <!-- Required to query activities that can process text, see:
-         https://developer.android.com/training/package-visibility and
-         https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.
-
-         In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
     <queries>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- Allow opening exact-alarm / app-notification settings screens -->
+        <intent>
+            <action android:name="android.settings.REQUEST_SCHEDULE_EXACT_ALARM" />
+        </intent>
+        <intent>
+            <action android:name="android.settings.APP_NOTIFICATION_SETTINGS" />
+        </intent>
+        <intent>
+            <action android:name="android.settings.APPLICATION_DETAILS_SETTINGS" />
         </intent>
     </queries>
 </manifest>

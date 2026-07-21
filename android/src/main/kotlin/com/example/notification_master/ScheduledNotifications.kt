@@ -73,7 +73,9 @@ data class ScheduledItem(
     val priority: Int,
     val targetScreen: String?,
     val extraDataJson: String?,
-    val triggerAtMillis: Long
+    val triggerAtMillis: Long,
+    /** When true, fire as Windows-style alarm (TYPE_ALARM sound + CATEGORY_ALARM). */
+    val alarmSound: Boolean = false
 ) {
     fun toJson(): JSONObject = JSONObject().apply {
         put("id", id)
@@ -84,6 +86,7 @@ data class ScheduledItem(
         put("targetScreen", targetScreen ?: JSONObject.NULL)
         put("extraData", extraDataJson ?: JSONObject.NULL)
         put("triggerAt", triggerAtMillis)
+        put("alarmSound", alarmSound)
     }
 
     companion object {
@@ -95,7 +98,8 @@ data class ScheduledItem(
             priority = obj.optInt("priority", NotificationCompat.PRIORITY_DEFAULT),
             targetScreen = obj.optString("targetScreen", null)?.takeIf { it.isNotEmpty() },
             extraDataJson = obj.optString("extraData", null)?.takeIf { it != "null" && it.isNotEmpty() },
-            triggerAtMillis = obj.optLong("triggerAt", 0L)
+            triggerAtMillis = obj.optLong("triggerAt", 0L),
+            alarmSound = obj.optBoolean("alarmSound", false)
         )
     }
 }
@@ -119,6 +123,7 @@ class ScheduledNotificationReceiver : BroadcastReceiver() {
         const val EXTRA_PRIORITY = "priority"
         const val EXTRA_TARGET_SCREEN = "target_screen"
         const val EXTRA_EXTRA_DATA = "extra_data"
+        const val EXTRA_ALARM_SOUND = "alarm_sound"
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -134,19 +139,34 @@ class ScheduledNotificationReceiver : BroadcastReceiver() {
         )
         val targetScreen = intent.getStringExtra(EXTRA_TARGET_SCREEN)
         val extraData = jsonToMap(intent.getStringExtra(EXTRA_EXTRA_DATA))
+        val alarmSound = intent.getBooleanExtra(EXTRA_ALARM_SOUND, false)
 
         try {
             val helper = NotificationHelper(context)
             val contentIntent = getTargetIntent(context, targetScreen, extraData)
-            helper.showNotification(
-                title = title,
-                message = message,
-                channelId = channelId ?: NotificationHelper.DEFAULT_CHANNEL_ID,
-                intent = contentIntent,
-                priority = priority,
-                autoCancel = true,
-                customId = id
-            )
+
+            if (alarmSound) {
+                // Windows-style Alarm Time: loud TYPE_ALARM + full-screen when locked
+                helper.showAlarmNotification(
+                    title = title,
+                    message = message,
+                    channelId = channelId ?: NotificationHelper.ALARM_CHANNEL_ID,
+                    intent = contentIntent,
+                    autoCancel = true,
+                    customId = id,
+                    fullScreen = true
+                )
+            } else {
+                helper.showNotification(
+                    title = title,
+                    message = message,
+                    channelId = channelId ?: NotificationHelper.DEFAULT_CHANNEL_ID,
+                    intent = contentIntent,
+                    priority = priority,
+                    autoCancel = true,
+                    customId = id
+                )
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Error showing scheduled notification", e)
         }

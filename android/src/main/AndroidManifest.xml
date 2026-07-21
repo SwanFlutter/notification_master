@@ -1,32 +1,61 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
   package="com.example.notification_master">
 
-  <!-- Allow scheduling exact (alarm-like) notifications -->
-  <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-  <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
-  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-  <uses-permission android:name="android.permission.WAKE_LOCK" />
+  <!--
+    ═══════════════════════════════════════════════════════════════════════════
+    Notification Master — Android Manifest (plugin-level)
+    ───────────────────────────────────────────────────────────────────────────
+    NO permissions are declared here by the plugin.
+
+    All required permissions must be added manually by the host app in:
+      android/app/src/main/AndroidManifest.xml
+
+    This prevents app stores (Google Play, Bazaar, Myket, etc.) from flagging
+    sensitive permissions that the app may not actually use.
+
+    Required permissions and their purpose are documented in:
+      README.md  (English) → Platform Setup → Android
+      README_FA.md (فارسی) → راه‌اندازی پلتفرم‌ها → Android
+      agent.md             → Android — what the plugin declares
+    ═══════════════════════════════════════════════════════════════════════════
+  -->
 
   <application>
 
-    <!-- Foreground service for continuous notification polling -->
+    <!--
+      ── Background delivery services (mutually exclusive, separate from local notifs) ──
+      These are NOT started for normal showNotification / scheduleNotification.
+      They activate only when the app explicitly starts polling or a foreground
+      service as a remote-delivery fallback (see setActiveNotificationService).
+    -->
+
+    <!-- Foreground service: continuous HTTP polling while a sticky notification is shown -->
     <service
       android:name=".NotificationForegroundService"
       android:exported="false"
       android:foregroundServiceType="dataSync"
       android:stopWithTask="false" />
 
-    <!-- Receiver to restart polling after device reboot -->
+    <!--
+      Boot / package-replace receiver:
+      - Re-arms OS-scheduled (AlarmManager) local notifications always
+      - Restarts ONLY the previously active background service (polling OR foreground)
+        — never starts a service just because local notifications exist
+    -->
     <receiver
       android:name=".BootCompletedReceiver"
-      android:exported="false">
+      android:exported="false"
+      android:enabled="true">
       <intent-filter>
         <action android:name="android.intent.action.BOOT_COMPLETED" />
+        <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
         <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+        <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+        <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
       </intent-filter>
     </receiver>
 
-    <!-- Receiver for incoming notification broadcasts -->
+    <!-- Incoming notification broadcasts from polling workers / services -->
     <receiver
       android:name=".NotificationReceiver"
       android:exported="false">
@@ -35,10 +64,11 @@
       </intent-filter>
     </receiver>
 
-    <!-- Receiver for scheduled (background) notifications -->
+    <!-- AlarmManager-fired scheduled (local) notifications — independent of services -->
     <receiver
       android:name=".ScheduledNotificationReceiver"
-      android:exported="false">
+      android:exported="false"
+      android:enabled="true">
       <intent-filter>
         <action android:name="com.example.notification_master.SCHEDULED_NOTIFICATION" />
       </intent-filter>

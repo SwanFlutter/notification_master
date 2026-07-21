@@ -394,11 +394,10 @@ class MethodChannelNotificationMaster extends NotificationMasterPlatform {
     required String pollingUrl,
     int? intervalMinutes,
   }) async {
-    final result = await methodChannel
-        .invokeMethod<bool>('startBackgroundPollingService', {
-          'pollingUrl': pollingUrl,
-          'intervalMinutes': intervalMinutes,
-        });
+    final result = await methodChannel.invokeMethod<bool>(
+      'startBackgroundPollingService',
+      {'pollingUrl': pollingUrl, 'intervalMinutes': intervalMinutes},
+    );
     return result ?? false;
   }
 
