@@ -80,7 +80,7 @@ jobs:
 
       - name: Build Linux example (debug)
         working-directory: example
-        run: flutter build linux --debug
+        run: flutter build linux --debug --verbose 2>&1 | tail -50
 
       - name: Verify plugin .so exists
         run: |
@@ -140,7 +140,7 @@ jobs:
 
       - name: Build macOS example (debug)
         working-directory: example
-        run: flutter build macos --debug
+        run: flutter build macos --debug --verbose 2>&1 | tail -80
 
       - name: Verify plugin framework exists
         run: |
@@ -210,7 +210,7 @@ jobs:
 
       - name: Build iOS example (no-codesign)
         working-directory: example
-        run: flutter build ios --debug --no-codesign
+        run: flutter build ios --debug --no-codesign --verbose 2>&1 | tail -80
 
       - name: Verify iOS .app exists
         run: |
