@@ -10,12 +10,18 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin, UNUserNotificati
   private var isPollingActive = false
   private var channel: FlutterMethodChannel?
 
-  // Service types
+  /// In-process timer that fires HTTP polls while the app is open.
+  /// BGTaskScheduler only fires when the app is in the background and iOS
+  /// decides to grant CPU time, so a foreground Timer is needed for the
+  /// "polling" / "foreground" modes to work reliably during app use.
+  private var pollingTimer: Timer?
+
+  // Service types — "firebase" is the canonical Dart-side name for APNS/FCM.
   private enum NotificationServiceType: String {
     case none = "none"
     case polling = "polling"
-    case foreground = "foreground" // Simulated foreground service
-    case apns = "apns" // Apple Push Notification Service
+    case foreground = "foreground"
+    case firebase = "firebase"  // covers APNS / FCM
   }
 
   // UserDefaults keys
@@ -267,6 +273,42 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin, UNUserNotificati
       getPendingScheduledNotifications { ids in
         result(ids)
       }
+
+    // These are Android-specific permission gates; always true / no-op on iOS.
+    case "canScheduleExactAlarms":
+      result(true)
+
+    case "openExactAlarmSettings":
+      result(false)
+
+    case "openAppNotificationSettings":
+      // Open the app's notification settings page in iOS Settings.
+      if let url = URL(string: UIApplication.openSettingsURLString) {
+        DispatchQueue.main.async {
+          UIApplication.shared.open(url, options: [:], completionHandler: nil)
+        }
+      }
+      result(true)
+
+    // Background daemon is supported on Windows, Linux, and macOS only.
+    // On iOS use startNotificationPolling() (BGTaskScheduler-based) instead.
+    case "startBackgroundPollingService":
+      result(FlutterError(
+        code: "PLATFORM_NOT_SUPPORTED",
+        message: "startBackgroundPollingService is only available on Windows, Linux, and macOS. Use startNotificationPolling() on iOS.",
+        details: nil))
+
+    case "stopBackgroundPollingService":
+      result(FlutterError(
+        code: "PLATFORM_NOT_SUPPORTED",
+        message: "stopBackgroundPollingService is only available on Windows, Linux, and macOS. Use stopNotificationPolling() on iOS.",
+        details: nil))
+
+    case "isBackgroundPollingRunning":
+      result(FlutterError(
+        code: "PLATFORM_NOT_SUPPORTED",
+        message: "isBackgroundPollingRunning is only available on Windows, Linux, and macOS.",
+        details: nil))
 
     default:
       result(FlutterMethodNotImplemented)
@@ -587,28 +629,79 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin, UNUserNotificati
     // Set active service
     setActiveService(.polling)
 
-    // Schedule background task
+    // Start in-process timer for foreground polling.
+    startPollingTimer()
+
+    // Also schedule BGTask so polling continues in the background.
     if #available(iOS 13.0, *) {
       scheduleBackgroundTask()
     } else {
-      // For older iOS versions, use background fetch
       UIApplication.shared.setMinimumBackgroundFetchInterval(Double(intervalMinutes * 60))
     }
   }
 
   private func stopNotificationPolling() {
     self.isPollingActive = false
-
-    // Set active service to none
+    stopPollingTimer()
     setActiveService(.none)
 
-    // Cancel background tasks
     if #available(iOS 13.0, *) {
       BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: NotificationMasterPlugin.taskIdentifier)
     } else {
-      // For older iOS versions
       UIApplication.shared.setMinimumBackgroundFetchInterval(UIApplication.backgroundFetchIntervalNever)
     }
+  }
+
+  // MARK: - In-Process Polling Timer
+
+  private func startPollingTimer() {
+    stopPollingTimer()
+    guard let urlString = pollingUrl, !urlString.isEmpty else { return }
+    let seconds = max(1.0, Double(intervalMinutes) * 60.0)
+    // Fire once immediately, then repeat on the interval.
+    performPoll(urlString: urlString)
+    pollingTimer = Timer.scheduledTimer(withTimeInterval: seconds, repeats: true) { [weak self] _ in
+      guard let self = self, self.isPollingActive else { return }
+      self.performPoll(urlString: urlString)
+    }
+  }
+
+  private func stopPollingTimer() {
+    pollingTimer?.invalidate()
+    pollingTimer = nil
+  }
+
+  private func performPoll(urlString: String) {
+    guard let url = URL(string: urlString) else { return }
+    URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
+      guard let self = self, let data = data, error == nil else { return }
+      guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let notifs = json["notifications"] as? [[String: Any]] else {
+        // Non-conforming URL (e.g. test endpoint) — show a fallback notification.
+        DispatchQueue.main.async {
+          _ = self.showNotification(
+            title: "Notification",
+            message: "New notification received",
+            channelId: nil, priority: 2, autoCancel: true,
+            id: nil, targetScreen: nil, extraData: nil
+          )
+        }
+        return
+      }
+      DispatchQueue.main.async {
+        for n in notifs {
+          let title = n["title"] as? String ?? "Notification"
+          let message = (n["bigText"] as? String) ?? (n["message"] as? String) ?? ""
+          _ = self.showNotification(
+            title: title, message: message,
+            channelId: n["channelId"] as? String,
+            priority: 2, autoCancel: true, id: nil,
+            targetScreen: n["targetScreen"] as? String,
+            extraData: n["extraData"] as? [String: Any]
+          )
+        }
+      }
+    }.resume()
   }
 
   @available(iOS 13.0, *)
@@ -679,53 +772,42 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin, UNUserNotificati
   // MARK: - Foreground Service (Simulated)
 
   private func startForegroundService(pollingUrl: String, intervalMinutes: Int) {
-    // In iOS, we'll simulate a foreground service by using more frequent background tasks
-    // and showing a persistent notification
-
     self.pollingUrl = pollingUrl
     self.intervalMinutes = intervalMinutes
     self.isPollingActive = true
 
-    // Save settings to UserDefaults
     UserDefaults.standard.set(pollingUrl, forKey: NotificationMasterPlugin.pollingUrlKey)
     UserDefaults.standard.set(intervalMinutes, forKey: NotificationMasterPlugin.intervalMinutesKey)
 
-    // Set active service
     setActiveService(.foreground)
 
-    // Show a persistent notification
+    // Show a persistent status notification.
     let content = UNMutableNotificationContent()
     content.title = "Notification Service"
     content.body = "Checking for notifications every \(intervalMinutes) minutes"
     content.sound = nil
-
-    // Make it persistent by not auto-canceling
     let request = UNNotificationRequest(identifier: "foreground_service", content: content, trigger: nil)
     UNUserNotificationCenter.current().add(request, withCompletionHandler: nil)
 
-    // Schedule background task
+    // In-process timer + BGTask.
+    startPollingTimer()
     if #available(iOS 13.0, *) {
       scheduleBackgroundTask()
     } else {
-      // For older iOS versions, use background fetch
       UIApplication.shared.setMinimumBackgroundFetchInterval(Double(intervalMinutes * 60))
     }
   }
 
   private func stopForegroundService() {
     self.isPollingActive = false
-
-    // Set active service to none
+    stopPollingTimer()
     setActiveService(.none)
 
-    // Remove the persistent notification
     UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: ["foreground_service"])
 
-    // Cancel background tasks
     if #available(iOS 13.0, *) {
       BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: NotificationMasterPlugin.taskIdentifier)
     } else {
-      // For older iOS versions
       UIApplication.shared.setMinimumBackgroundFetchInterval(UIApplication.backgroundFetchIntervalNever)
     }
   }
@@ -733,47 +815,36 @@ public class NotificationMasterPlugin: NSObject, FlutterPlugin, UNUserNotificati
   // MARK: - Service Management
 
   private func setActiveService(_ serviceType: NotificationServiceType) {
-    // Get current active service
     let currentService = getActiveServiceType()
+    if currentService == serviceType { return }
 
-    // If the same service is already active, do nothing
-    if currentService == serviceType {
-      return
-    }
-
-    // Disable current active service
+    // Tear down old service.
     switch currentService {
-    case .polling:
+    case .polling, .foreground:
+      stopPollingTimer()
       if #available(iOS 13.0, *) {
         BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: NotificationMasterPlugin.taskIdentifier)
       } else {
         UIApplication.shared.setMinimumBackgroundFetchInterval(UIApplication.backgroundFetchIntervalNever)
       }
-    case .foreground:
-      // Remove the persistent notification
-      UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: ["foreground_service"])
-      if #available(iOS 13.0, *) {
-        BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: NotificationMasterPlugin.taskIdentifier)
-      } else {
-        UIApplication.shared.setMinimumBackgroundFetchInterval(UIApplication.backgroundFetchIntervalNever)
+      if currentService == .foreground {
+        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: ["foreground_service"])
       }
-    case .apns, .none:
-      // Nothing to do
+    case .firebase, .none:
       break
     }
 
-    // Save the new active service
     UserDefaults.standard.set(serviceType.rawValue, forKey: NotificationMasterPlugin.serviceTypeKey)
   }
 
   private func setFirebaseAsActiveService() {
-    setActiveService(.apns)
+    setActiveService(.firebase)
   }
 
   private func getActiveServiceType() -> NotificationServiceType {
-    if let serviceString = UserDefaults.standard.string(forKey: NotificationMasterPlugin.serviceTypeKey),
-       let service = NotificationServiceType(rawValue: serviceString) {
-      return service
+    if let s = UserDefaults.standard.string(forKey: NotificationMasterPlugin.serviceTypeKey),
+       let svc = NotificationServiceType(rawValue: s) {
+      return svc
     }
     return .none
   }

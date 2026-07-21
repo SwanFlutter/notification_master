@@ -369,18 +369,49 @@ class NotificationMaster {
 
   /// Cancel every notification scheduled with [scheduleNotification].
   Future<bool> cancelAllScheduledNotifications() {
-    return NotificationMasterPlatform.instance.cancelAllScheduledNotifications();
+    return NotificationMasterPlatform.instance
+        .cancelAllScheduledNotifications();
   }
 
   /// Returns the ids of notifications that are scheduled but not yet delivered.
   Future<List<int>> getPendingScheduledNotifications() {
-    return NotificationMasterPlatform.instance.getPendingScheduledNotifications();
+    return NotificationMasterPlatform.instance
+        .getPendingScheduledNotifications();
   }
 
-  /// Start a standalone background poller (Windows). It keeps polling
-  /// [pollingUrl] and showing toasts even after the app is fully closed,
-  /// because it runs in its own process. A log file is written next to the
+  /// Android 12+: whether exact alarms (Alarm Time scheduling) are allowed.
+  /// Returns `true` on platforms that do not gate this permission.
+  Future<bool> canScheduleExactAlarms() {
+    return NotificationMasterPlatform.instance.canScheduleExactAlarms();
+  }
+
+  /// Opens the system screen where the user can grant **Alarms & reminders**.
+  /// This cannot be granted automatically — the user must toggle it.
+  Future<bool> openExactAlarmSettings() {
+    return NotificationMasterPlatform.instance.openExactAlarmSettings();
+  }
+
+  /// Opens the app's notification settings (channels, full-screen intent, etc.).
+  /// Manual user action only.
+  Future<bool> openAppNotificationSettings() {
+    return NotificationMasterPlatform.instance.openAppNotificationSettings();
+  }
+
+  /// Start a standalone background poller daemon. Supported on **Windows**,
+  /// **Linux**, and **macOS**. The daemon runs in its own process and keeps
+  /// polling [pollingUrl] and showing desktop notifications even after the
+  /// main Flutter app is fully closed. A log file is written next to the
   /// executable for diagnostics.
+  ///
+  /// Platform behaviour:
+  /// - **Windows** — launches `notification_master_poller.exe`
+  /// - **Linux**   — launches `notification_master_poller` (ELF binary, uses
+  ///   libnotify + libcurl)
+  /// - **macOS**   — launches `notification_master_poller` (Swift CLI binary,
+  ///   uses UNUserNotificationCenter + URLSession)
+  /// - **Android / iOS / Web** — throws a [PlatformException] with code
+  ///   `PLATFORM_NOT_SUPPORTED`; use [startForegroundService] or
+  ///   [startNotificationPolling] instead.
   Future<bool> startBackgroundPollingService({
     required String pollingUrl,
     int? intervalMinutes,
@@ -391,12 +422,19 @@ class NotificationMaster {
     );
   }
 
-  /// Stop the background poller started via [startBackgroundPollingService].
+  /// Stop the background poller daemon started via [startBackgroundPollingService].
+  ///
+  /// Supported on Windows, Linux, and macOS. On Android, iOS, and Web throws
+  /// a [PlatformException] with code `PLATFORM_NOT_SUPPORTED`.
   Future<bool> stopBackgroundPollingService() {
     return NotificationMasterPlatform.instance.stopBackgroundPollingService();
   }
 
-  /// Whether the background poller process is currently running.
+  /// Whether the background poller daemon is currently running.
+  ///
+  /// Supported on Windows, Linux, and macOS. On Android, iOS, and Web throws
+  /// a [PlatformException] with code `PLATFORM_NOT_SUPPORTED`. Returns `false`
+  /// when no daemon has been started.
   Future<bool> isBackgroundPollingRunning() {
     return NotificationMasterPlatform.instance.isBackgroundPollingRunning();
   }

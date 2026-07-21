@@ -7,11 +7,11 @@
 | Platform | Support | ویژگی‌ها |
 |----------|---------|----------|
 | Android  | ✅ | نوتیفیکیشن محلی، کانال سفارشی، HTTP polling، Foreground Service |
-| iOS      | ✅ | نوتیفیکیشن محلی، صدای سفارشی، Badge، HTTP polling |
-| macOS    | ✅ | نوتیفیکیشن native، HTTP polling |
-| Windows  | ✅ | Toast notification، HTTP polling |
+| iOS      | ✅ | نوتیفیکیشن محلی، صدای سفارشی، Badge، HTTP polling — **[راهنما](IOS_SETUP_FA.md)** |
+| macOS    | ✅ | نوتیفیکیشن native، HTTP polling، Background daemon |
+| Windows  | ✅ | Toast notification، ۷ نوع، سناریوهای Alarm/Call، HTTP polling، Background daemon — **[راهنما](WINDOWS_NOTIFICATIONS_GUIDE.md)** |
 | Web      | ✅ | Browser Notification API، مدیریت Permission |
-| Linux    | ✅ | Desktop notification، HTTP polling |
+| Linux    | ✅ | Desktop notification (libnotify)، HTTP polling، Background daemon |
 
 ---
 
@@ -21,7 +21,7 @@
 
 ```yaml
 dependencies:
-  notification_master: ^0.0.7
+  notification_master: ^1.0.0
 ```
 
 ```bash
@@ -34,21 +34,53 @@ flutter pub get
 
 ### 🤖 Android
 
-در فایل `android/app/src/main/AndroidManifest.xml` داخل تگ `<manifest>` اضافه کنید:
+> ⚠️ **مهم:** پلاگین هیچ permission ای را به‌صورت خودکار در manifest خود اعلام **نمی‌کند**.
+> تمام permissionهای مورد نیاز را باید خودتان در فایل
+> `android/app/src/main/AndroidManifest.xml` اضافه کنید.
+> این کار باعث می‌شود مارکت‌هایی مثل Google Play، بازار و مایکت
+> permissionهای حساسی که اپ شما واقعاً استفاده نمی‌کند را flag نزنند.
+
+فقط permissionهایی که اپ شما نیاز دارد را داخل تگ `<manifest>` اضافه کنید:
 
 ```xml
-<!-- اینترنت برای HTTP polling -->
+<!-- ── برای همه انواع نوتیفیکیشن لازم است ──────────────────────────── -->
+
+<!-- دسترسی به اینترنت برای HTTP polling و نوتیفیکیشن تصویری -->
 <uses-permission android:name="android.permission.INTERNET" />
 
-<!-- برای Android 13+ (API 33+) -->
+<!-- Android 13+ (API 33+): باید در runtime توسط کاربر تأیید شود -->
 <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-<!-- برای Foreground Service -->
+<!-- ── فقط اگر از startForegroundService() استفاده می‌کنید ──────────── -->
+
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
-<!-- برای اجرا بعد از ریستارت دستگاه -->
+<!-- ── فقط اگر از startNotificationPolling() یا FGS استفاده می‌کنید ── -->
+
+<!-- راه‌اندازی مجدد بعد از ریستارت دستگاه -->
 <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+<!-- ── فقط اگر از scheduleNotification() استفاده می‌کنید ─────────────── -->
+
+<!-- زمان‌بندی دقیق — Android 12+ ممکن است نیاز به تأیید کاربر در تنظیمات داشته باشد -->
+<uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+<!-- فقط برای اپ‌های ساعت/تقویم در Android 13+ به‌صورت خودکار اعطا می‌شود -->
+<uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+
+<!-- ── اختیاری ───────────────────────────────────────────────────────── -->
+
+<!-- بررسی وضعیت شبکه قبل از polling -->
+<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+<!-- ویبره هنگام نوتیفیکیشن -->
+<uses-permission android:name="android.permission.VIBRATE" />
+
+<!-- نگه داشتن CPU بیدار حین polling -->
+<uses-permission android:name="android.permission.WAKE_LOCK" />
+
+<!-- نوتیفیکیشن‌های تمام‌صفحه / تماس ورودی (API 34+ ممکن است نیاز به تنظیم دستی داشته باشد) -->
+<uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
 ```
 
 همچنین در تگ `<activity>` اضافه کنید:
@@ -61,6 +93,31 @@ flutter pub get
     android:enableOnBackInvokedCallback="true"
     ...>
 ```
+
+#### راه‌اندازی HTTP Polling در اندروید
+
+در اندروید، HTTP polling از طریق `startForegroundService()` (توصیه‌شده) یا `startNotificationPolling()` (مبتنی بر WorkManager) انجام می‌شود.
+
+**`startForegroundService()` — سرویس foreground با نوتیفیکیشن دائمی:**
+
+```dart
+await nm.startForegroundService(
+  pollingUrl: 'https://your-server.com/api/notifications',
+  intervalMinutes: 1,
+  channelId: 'polling_channel',
+);
+```
+
+**`startNotificationPolling()` — job پس‌زمینه WorkManager (ممکن است توسط OS محدود شود):**
+
+```dart
+await nm.startNotificationPolling(
+  pollingUrl: 'https://your-server.com/api/notifications',
+  intervalMinutes: 15, // حداقل WorkManager
+);
+```
+
+> ℹ️ متد `startBackgroundPollingService()` (daemon process) در اندروید **موجود نیست**. از `startForegroundService()` یا `startNotificationPolling()` استفاده کنید.
 
 ---
 
@@ -172,6 +229,27 @@ import UserNotifications
 - فارسی: [IOS_SETUP_FA.md](IOS_SETUP_FA.md)
 - English: [IOS_SETUP.md](IOS_SETUP.md)
 
+#### راه‌اندازی HTTP Polling در iOS
+
+در iOS، HTTP polling از `BGTaskScheduler` که در `AppDelegate.swift` ثبت شده استفاده می‌کند. ستاپ در مرحله ۳ بالا این کار را انجام می‌دهد. از `startNotificationPolling()` استفاده کنید:
+
+```dart
+await nm.startNotificationPolling(
+  pollingUrl: 'https://your-server.com/api/notifications',
+  intervalMinutes: 15, // حداقل BGTaskScheduler حدود ۱۵ دقیقه است
+);
+```
+
+برای توقف:
+
+```dart
+await nm.stopNotificationPolling();
+```
+
+> ℹ️ متد `startBackgroundPollingService()` (daemon process) در iOS **موجود نیست**. از `startNotificationPolling()` استفاده کنید که `BGAppRefreshTask` ثبت‌شده در `AppDelegate` شما را wrap می‌کند.
+
+> ⚠️ iOS یک حداقل interval حدود ۱۵ دقیقه برای task‌های پس‌زمینه اعمال می‌کند. زمان‌بندی دقیق توسط OS بر اساس باتری، الگوی استفاده و شبکه تعیین می‌شود.
+
 ---
 
 ### 🌐 Web
@@ -202,16 +280,13 @@ import UserNotifications
 در فایل `macos/Runner/Info.plist` داخل تگ `<dict>` اضافه کنید:
 
 ```xml
-<!-- شناسه ثابت task پس‌زمینه — همین مقدار را بنویسید، تغییر ندهید -->
-<key>BGTaskSchedulerPermittedIdentifiers</key>
-<array>
-    <string>com.example.notification_master.polling</string>
-</array>
-
 <!-- توضیح دلیل ارسال نوتیفیکیشن -->
 <key>NSUserNotificationUsageDescription</key>
 <string>این اپ برای اطلاع‌رسانی به شما نوتیفیکیشن ارسال می‌کند.</string>
 ```
+
+> ℹ️ **توجه:** `BGTaskSchedulerPermittedIdentifiers` در macOS **لازم نیست**.
+> پلاگین برای polling در macOS از یک `Timer` داخلی استفاده می‌کند — `BGTaskScheduler` فقط در iOS موجود است.
 
 #### ۳. AppDelegate.swift
 
@@ -220,7 +295,6 @@ import UserNotifications
 ```swift
 import Cocoa
 import FlutterMacOS
-import notification_master
 import UserNotifications
 
 @main
@@ -228,10 +302,6 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
   override func applicationDidFinishLaunching(_ notification: Notification) {
     // ضروری: نمایش نوتیفیکیشن هنگام باز بودن اپ
     UNUserNotificationCenter.current().delegate = self
-
-    // ضروری: ثبت task پس‌زمینه
-    NotificationMasterPlugin.registerBackgroundTask()
-
     super.applicationDidFinishLaunching(notification)
   }
 
@@ -259,11 +329,290 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
 }
 ```
 
+> ℹ️ نیازی به `import notification_master` یا `registerBackgroundTask()` در macOS نیست —
+> پلاگین delegate نوتیفیکیشن را داخلی مدیریت می‌کند و از polling مبتنی بر `Timer` استفاده می‌کند.
+
+#### راه‌اندازی HTTP Polling در مک‌اواس
+
+مک‌اواس از **دو** حالت polling پشتیبانی می‌کند:
+
+**حالت A — polling داخلی (اپ باید باز باشد):** از `startNotificationPolling()` استفاده کنید. یک `Timer` داخل پروسه Flutter اجرا می‌شود.
+
+```dart
+await nm.startNotificationPolling(
+  pollingUrl: 'https://your-server.com/api/notifications',
+  intervalMinutes: 1,
+);
+```
+
+**حالت B — Background daemon (بعد از بسته شدن اپ هم کار می‌کند):** از `startBackgroundPollingService()` استفاده کنید. یک باینری Swift مستقل (`notification_master_poller`) کنار `.app` bundle اجرا می‌شود.
+
+```dart
+await nm.startBackgroundPollingService(
+  pollingUrl: 'https://your-server.com/api/notifications',
+  intervalMinutes: 1,
+);
+```
+
+> ℹ️ باینری `notification_master_poller` هنگام `flutter build macos` به‌صورت خودکار build می‌شود و باید در همان دایرکتوری executable اپ قرار داشته باشد.
+
 ---
 
 ### 🪟 Windows / 🐧 Linux
 
 نیازی به تنظیم اضافه نیست. پلاگین به‌صورت خودکار شناسایی می‌کند.
+
+#### راه‌اندازی HTTP Polling در ویندوز و لینوکس
+
+هر دو پلتفرم از **background daemon** استفاده می‌کنند — یک پروسه مستقل که بعد از بسته شدن اپ هم ادامه می‌دهد. نیازی به تنظیم اضافه در پروژه نیست؛ باینری daemon هنگام build به‌صورت خودکار ساخته و کپی می‌شود.
+
+```dart
+// شروع daemon
+await nm.startBackgroundPollingService(
+  pollingUrl: 'https://your-server.com/api/notifications',
+  intervalMinutes: 1,
+);
+
+// توقف daemon
+await nm.stopBackgroundPollingService();
+
+// بررسی وضعیت
+final running = await nm.isBackgroundPollingRunning();
+```
+
+راهنمای کامل daemon را در ادامه ببینید.
+
+---
+
+### 🪟 ویندوز — HTTP Polling (Background Daemon)
+
+پولینگ در ویندوز با Android/iOS فرق دارد. به جای یک job سیستمی مانند WorkManager، پلاگین یک **پروسه مستقل** (`notification_master_poller.exe`) راه‌اندازی می‌کند که حتی بعد از بسته شدن اپ اصلی به پولینگ سرور و نمایش toast ادامه می‌دهد.
+
+#### نحوه کار
+
+```
+Flutter app  ──startBackgroundPollingService()──►  notification_master_poller.exe
+                                                          │
+                                  ┌───────────────────────┘
+                                  │  URL + interval را از registry می‌خواند
+                                  │  هر N دقیقه سرور را poll می‌کند
+                                  │  toast ویندوز را از طریق WinToast نشان می‌دهد
+                                  │  لاگ → notification_master_poller.log
+                                  └──► بعد از بسته شدن/ریستارت اپ زنده می‌ماند
+```
+
+فایل اجرایی daemon هنگام `flutter build windows` یا `flutter run` به‌صورت خودکار build می‌شود — نیازی به مرحله جداگانه build نیست.
+
+#### مرحله ۱ — راه‌اندازی Dart (مثل سایر پلتفرم‌ها)
+
+```dart
+import 'package:notification_master/notification_master.dart';
+
+final nm = NotificationMaster();
+
+// ۱. بررسی / درخواست permission
+final granted = await nm.checkNotificationPermission();
+if (!granted) await nm.requestNotificationPermission();
+
+// ۲. راه‌اندازی background poller daemon
+//    پروسه daemon کنار .exe اپ شما اجرا می‌شود.
+final ok = await nm.startBackgroundPollingService(
+  pollingUrl: 'https://your-server.com/api/notifications',
+  intervalMinutes: 1, // حداقل توصیه‌شده: ۱
+);
+
+if (!ok) {
+  // .exe daemon پیدا نشد — مطمئن شوید با flutter build windows build کرده‌اید
+  debugPrint('راه‌اندازی background poller شکست خورد');
+}
+```
+
+#### مرحله ۲ — فرمت JSON سرور
+
+endpoint سرور شما باید JSON با این ساختار دقیق برگرداند:
+
+```json
+{
+  "notifications": [
+    {
+      "title": "پیام جدید",
+      "message": "۳ پیام خوانده‌نشده دارید",
+      "bigText": "متن گسترش‌یافته اختیاری که در toast نمایش داده می‌شود",
+      "imageUrl": "https://example.com/avatar.png",
+      "channelId": "high_priority_channel"
+    }
+  ]
+}
+```
+
+- وقتی چیز جدیدی نیست آرایه **خالی** برگردانید (`"notifications": []`) — daemon بی‌صدا skip می‌کند.
+- فیلدهای `bigText`، `imageUrl` و `channelId` اختیاری هستند.
+
+#### مرحله ۳ — توقف daemon
+
+```dart
+await nm.stopBackgroundPollingService();
+```
+
+پروسه daemon متوقف شده و رکورد registry پاک می‌شود. راه‌اندازی بعدی اپ آن را به‌صورت خودکار مجدداً شروع نمی‌کند.
+
+#### بررسی وضعیت daemon
+
+```dart
+final running = await nm.isBackgroundPollingRunning();
+print('Daemon در حال اجرا: $running');
+```
+
+#### خواندن لاگ daemon
+
+daemon یک فایل لاگ کنار `.exe` اپ می‌نویسد:
+
+```
+<build-output>\runner\Debug\notification_master_poller.log
+```
+
+می‌توانید آن را در runtime داخل debug panel اپ نمایش دهید:
+
+```dart
+import 'dart:io';
+
+Future<void> printDaemonLog() async {
+  final dir = File(Platform.resolvedExecutable).parent.path;
+  final log = File('$dir\\notification_master_poller.log');
+  if (await log.exists()) {
+    final lines = await log.readAsLines();
+    for (final l in lines.reversed.take(30)) debugPrint(l);
+  }
+}
+```
+
+یک لاگ سالم معمولی این‌گونه است:
+
+```
+[NM-POLLER] [10:00:01.234] Daemon started. AUMI=NotificationMaster...
+[NM-POLLER] [10:00:01.235] PollingLoop: WinToast thread-instance initialized OK
+[NM-POLLER] [10:00:01.312] PollOnce: requesting https://your-server.com/api/notifications
+[NM-POLLER] [10:00:01.580] PollOnce: got 228 bytes
+[NM-POLLER] [10:00:01.581] ShowFromJson: title='پیام جدید' message='...' result=1234 err=0
+```
+
+`err=0` یعنی toast با موفقیت نمایش داده شد.
+
+#### Deduplication (جلوگیری از تکرار)
+
+daemon به‌صورت خودکار از نمایش مجدد نوتیفیکیشنی که `title + message` آن در **۱ ساعت** گذشته نشان داده شده جلوگیری می‌کند. این کار از flood شدن کاربر هنگامی که سرور همان ردیف تحویل‌داده‌نشده را برمی‌گرداند جلوگیری می‌کند. لاگ نشان می‌دهد:
+
+```
+[NM-POLLER] ShowFromJson: SKIPPED (already shown recently): title='...'
+```
+
+#### مثال کامل کاربردی
+
+فایل `example/lib/simple_polling_page.dart` یک UI کامل دارد که شامل:
+- شروع / توقف background daemon
+- Force poll برای تست فوری
+- نمایش لاگ daemon داخل اپ
+- کمک‌کننده SQL برای reset کردن ردیف‌های `delivered_at` حین توسعه
+
+---
+
+### 🐧 لینوکس — HTTP Polling (Background Daemon)
+
+لینوکس از همان معماری daemon ویندوز استفاده می‌کند. یک باینری مستقل C++ به نام `notification_master_poller` به عنوان یک پروسه جداگانه راه‌اندازی می‌شود و بعد از بسته شدن اپ اصلی هم به کار ادامه می‌دهد.
+
+#### نحوه کار
+
+```
+Flutter app  ──startBackgroundPollingService()──►  notification_master_poller  (ELF binary)
+                                                          │
+                                  ┌───────────────────────┘
+                                  │  URL + interval را از
+                                  │  ~/.config/notification_master/poller.conf می‌خواند
+                                  │  هر N دقیقه سرور را poll می‌کند (libcurl)
+                                  │  notification از طریق libnotify نمایش می‌دهد
+                                  │  لاگ → notification_master_poller.log
+                                  └──► بعد از بسته شدن/ریستارت اپ زنده می‌ماند
+```
+
+**پیش‌نیازها:** `libnotify`، `libcurl`، `libjson-glib` — روی Ubuntu/Fedora/Arch به صورت پیش‌فرض موجودند.
+
+#### راه‌اندازی Dart (مثل ویندوز)
+
+```dart
+final ok = await nm.startBackgroundPollingService(
+  pollingUrl: 'https://your-server.com/api/notifications',
+  intervalMinutes: 1,
+);
+```
+
+#### فایل config
+
+daemon از `~/.config/notification_master/poller.conf` می‌خواند:
+
+```ini
+[poller]
+url      = https://your-server.com/api/notifications
+interval = 1
+enabled  = 1
+```
+
+پلاگین این فایل را قبل از راه‌اندازی daemon به طور خودکار می‌نویسد.
+
+#### لاگ daemon
+
+کنار فایل اجرایی daemon نوشته می‌شود:
+
+```
+[NM-POLLER] [10:00:01.123] daemon started — pid=12345
+[NM-POLLER] [10:00:01.200] polling_loop: requesting https://your-server.com/...
+[NM-POLLER] [10:00:01.380] polling_loop: got 228 bytes
+[NM-POLLER] [10:00:01.381] show_notification: title='پیام جدید' body='...'
+```
+
+---
+
+### 🍎 مک‌اواس — HTTP Polling (Background Daemon)
+
+مک‌اواس از یک باینری مستقل Swift به نام `notification_master_poller` استفاده می‌کند که به عنوان یک پروسه جداگانه اجرا می‌شود. از `UNUserNotificationCenter` برای نوتیفیکیشن و `URLSession` برای HTTP استفاده می‌کند.
+
+#### نحوه کار
+
+```
+Flutter app  ──startBackgroundPollingService()──►  notification_master_poller  (Swift binary)
+                                                          │
+                                  ┌───────────────────────┘
+                                  │  URL + interval را از
+                                  │  UserDefaults (suite: com.notification-master.poller)
+                                  │  می‌خواند
+                                  │  هر N دقیقه poll می‌کند (URLSession)
+                                  │  notification از طریق UNUserNotificationCenter
+                                  │    (fallback به osascript اگر permission رد شود)
+                                  │  لاگ → notification_master_poller.log
+                                  └──► بعد از بسته شدن/ریستارت اپ زنده می‌ماند
+```
+
+#### راه‌اندازی Dart (مثل ویندوز/لینوکس)
+
+```dart
+final ok = await nm.startBackgroundPollingService(
+  pollingUrl: 'https://your-server.com/api/notifications',
+  intervalMinutes: 1,
+);
+```
+
+#### ذخیره‌سازی config
+
+در `UserDefaults` با suite `com.notification-master.poller` ذخیره می‌شود:
+
+| کلید | مقدار |
+|------|-------|
+| `nm_bg_poll_url` | آدرس endpoint |
+| `nm_bg_poll_interval` | interval به دقیقه |
+| `nm_bg_poll_enabled` | `"1"` = در حال اجرا، `"0"` = توقف |
+
+#### Permission نوتیفیکیشن
+
+daemon هنگام راه‌اندازی از `UNUserNotificationCenter` درخواست مجوز می‌کند. اگر رد شود، به `osascript`'s `display notification` که بدون bundle ID کار می‌کند fallback می‌کند.
 
 ---
 
@@ -1070,7 +1419,8 @@ class _HomePageState extends State<HomePage> {
 
 ## نکات مهم
 
-- **Android 13+**: حتماً `POST_NOTIFICATIONS` Permission را در Manifest و کد درخواست دهید.
+- **Permission های Android:** پلاگین هیچ permission ای را به‌صورت خودکار اعلام **نمی‌کند**. فقط permissionهایی که اپ شما واقعاً نیاز دارد را به `android/app/src/main/AndroidManifest.xml` اضافه کنید — بخش راه‌اندازی Android را ببینید.
+- **Android 13+**: حتماً `POST_NOTIFICATIONS` Permission را در runtime از کاربر درخواست دهید.
 - **Web**: مرورگر Safari پشتیبانی محدود دارد.
 - **Foreground Service**: فقط Android پشتیبانی می‌کند.
 - **Background Polling**: در Web کار نمی‌کند؛ فقط در حین باز بودن اپ polling انجام می‌شود.
@@ -1078,6 +1428,7 @@ class _HomePageState extends State<HomePage> {
 - **آیکون اپلیکیشن**: از `showStyledNotification()` برای نمایش آیکون اپلیکیشن در نوتیفیکیشن استفاده کنید. ⭐
 - **صدا**: کانال‌های سفارشی حالا به درستی با `enableSound: true` صدا پخش می‌کنند. ✅
 - **iOS**: نیاز به iOS 14.0+ دارد. از iOS 14 تا iOS 26+ پشتیبانی می‌کند. 📱
+- **Polling در macOS**: از یک `Timer` داخلی استفاده می‌کند — با بسته شدن اپ polling متوقف می‌شود. `BGTaskScheduler` فقط در iOS موجود است.
 
 ---
 

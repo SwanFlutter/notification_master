@@ -5,11 +5,12 @@ A comprehensive Flutter plugin for managing notifications across all platforms.
 
 ---
 
-[![Pub Points](https://img.shields.io/pub/points/permission_master)](https://pub.dev/packages/permission_master/score)
-[![Popularity](https://img.shields.io/pub/popularity/permission_master)](https://pub.dev/packages/permission_master)
-[![Pub Likes](https://img.shields.io/pub/likes/permission_master)](https://pub.dev/packages/permission_master)
-[![GitHub issues](https://img.shields.io/github/issues/SwanFlutter/permission_master)](https://github.com/SwanFlutter/permission_master/issues)
-[![GitHub forks](https://img.shields.io/github/forks/SwanFlutter/permission_master)](https://github.com/SwanFlutter/permission_master/network/members)
+[![pub package](https://img.shields.io/pub/v/notification_master.svg)](https://pub.dev/packages/notification_master)
+[![Pub Points](https://img.shields.io/pub/points/notification_master)](https://pub.dev/packages/permission_master/score)
+[![Popularity](https://img.shields.io/pub/popularity/notification_master)](https://pub.dev/packages/permission_master)
+[![Pub Likes](https://img.shields.io/pub/likes/notification_master)](https://pub.dev/packages/permission_master)
+[![GitHub issues](https://img.shields.io/github/issues/SwanFlutter/notification_master)](https://github.com/SwanFlutter/permission_master/issues)
+[![GitHub forks](https://img.shields.io/github/forks/SwanFlutter/notification_master)](https://github.com/SwanFlutter/permission_master/network/members)
 
 ---
 
@@ -19,11 +20,11 @@ A comprehensive Flutter plugin for managing notifications across all platforms.
 | Platform | Support | Features                                                                 |
 |----------|---------|--------------------------------------------------------------------------|
 | Android  | ✅      | Local notifications, custom channels, HTTP polling, Foreground Service  |
-| iOS      | ✅      | Local notifications, custom sounds, Badge, HTTP polling                 |
-| macOS    | ✅      | Native notifications, HTTP polling                                      |
-| Windows  | ✅      | Toast notifications, 7 types, Alarm/Call scenarios, HTTP polling - **[See Guide](WINDOWS_NOTIFICATIONS_GUIDE.md)** |
+| iOS      | ✅      | Local notifications, custom sounds, Badge, HTTP polling — **[See Guide](IOS_SETUP.md)** |
+| macOS    | ✅      | Native notifications, HTTP polling, Background daemon                   |
+| Windows  | ✅      | Toast notifications, 7 types, Alarm/Call scenarios, HTTP polling, Background daemon — **[See Guide](WINDOWS_NOTIFICATIONS_GUIDE.md)** |
 | Web      | ✅      | Browser Notification API, Permission management                         |
-| Linux    | ✅      | Desktop notifications, HTTP polling                                     |
+| Linux    | ✅      | Desktop notifications (libnotify), HTTP polling, Background daemon      |
 
 ---
 
@@ -33,7 +34,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  notification_master: ^0.0.7
+  notification_master: ^1.0.0
 ```
 
 Run:
@@ -77,29 +78,53 @@ flutter pub get
 
 ### 🤖 Android
 
-Add the following permissions to your app's `android/app/src/main/AndroidManifest.xml` inside the `<manifest>` tag:
+> ⚠️ **Important:** The plugin does **not** declare any permissions in its own manifest.
+> You must add all required permissions yourself in your app's
+> `android/app/src/main/AndroidManifest.xml`.
+> This keeps app-store reviews clean — stores like Google Play, Bazaar, and Myket flag
+> sensitive permissions even when they come from a plugin manifest.
+
+Add permissions inside the `<manifest>` tag, choosing only what your app actually uses:
 
 ```xml
-<!-- Required: Internet access for HTTP polling -->
+<!-- ── Required for all notification types ──────────────────────────── -->
+
+<!-- Internet access for HTTP polling and image notifications -->
 <uses-permission android:name="android.permission.INTERNET" />
 
-<!-- Required for Android 13+ (API 33+): show notifications -->
+<!-- Android 13+ (API 33+): must be granted by the user at runtime -->
 <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-<!-- Required: run a foreground service -->
-<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+<!-- ── Required only if you use startForegroundService() ────────────── -->
 
-<!-- Required: foreground service type for HTTP data sync (polling) -->
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
-<!-- Required: restart polling after device reboot -->
+<!-- ── Required only if you use startNotificationPolling() / FGS ────── -->
+
+<!-- Re-arm alarms and restart polling after device reboot -->
 <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
-<!-- Optional: vibrate on notification -->
+<!-- ── Required only if you use scheduleNotification() ─────────────── -->
+
+<!-- Exact alarm scheduling — Android 12+ may require user grant in Settings -->
+<uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+<!-- Auto-granted on Android 13+ for clock/calendar-style apps only -->
+<uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+
+<!-- ── Optional extras ──────────────────────────────────────────────── -->
+
+<!-- Network state check before polling -->
+<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+<!-- Vibrate on notification -->
 <uses-permission android:name="android.permission.VIBRATE" />
 
-<!-- Optional: keep CPU awake during polling -->
+<!-- Keep CPU awake during polling -->
 <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+<!-- Full-screen / incoming-call style alerts (user may need Settings toggle on API 34+) -->
+<uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
 ```
 
 Also update the `<activity>` tag in the same file:
@@ -113,9 +138,30 @@ Also update the `<activity>` tag in the same file:
     ...>
 ```
 
----
+#### Android HTTP Polling Setup
 
-### 🍎 iOS
+On Android, HTTP polling runs via `startForegroundService()` (recommended) or `startNotificationPolling()` (WorkManager-based).
+
+**`startForegroundService()` — persistent foreground service with a visible notification:**
+
+```dart
+await nm.startForegroundService(
+  pollingUrl: 'https://your-server.com/api/notifications',
+  intervalMinutes: 1,
+  channelId: 'polling_channel',
+);
+```
+
+**`startNotificationPolling()` — WorkManager background job (may be throttled by OS):**
+
+```dart
+await nm.startNotificationPolling(
+  pollingUrl: 'https://your-server.com/api/notifications',
+  intervalMinutes: 15, // minimum enforced by WorkManager
+);
+```
+
+> ℹ️ `startBackgroundPollingService()` (daemon process) is **not available on Android**. Use `startForegroundService()` or `startNotificationPolling()` instead.
 
 #### 1. Podfile
 
@@ -223,6 +269,27 @@ If you get a CocoaPods error about minimum deployment target:
 - English: [IOS_SETUP.md](IOS_SETUP.md)
 - فارسی: [IOS_SETUP_FA.md](IOS_SETUP_FA.md)
 
+#### iOS HTTP Polling Setup
+
+On iOS, HTTP polling uses `BGTaskScheduler` registered in `AppDelegate.swift`. The setup in step 3 above already handles this. Use `startNotificationPolling()`:
+
+```dart
+await nm.startNotificationPolling(
+  pollingUrl: 'https://your-server.com/api/notifications',
+  intervalMinutes: 15, // iOS BGTaskScheduler minimum is ~15 min
+);
+```
+
+To stop:
+
+```dart
+await nm.stopNotificationPolling();
+```
+
+> ℹ️ `startBackgroundPollingService()` (daemon process) is **not available on iOS**. Use `startNotificationPolling()` which wraps `BGAppRefreshTask` registered in your `AppDelegate`.
+
+> ⚠️ iOS enforces a minimum interval of ~15 minutes for background tasks. The exact timing is decided by the OS based on battery, usage patterns, and network conditions.
+
 ---
 
 ### 🌐 Web
@@ -253,16 +320,13 @@ Add to **both** `macos/Runner/DebugProfile.entitlements` and `macos/Runner/Relea
 Add to `macos/Runner/Info.plist` inside the `<dict>` tag:
 
 ```xml
-<!-- Required: must match the identifier used inside the plugin (fixed value) -->
-<key>BGTaskSchedulerPermittedIdentifiers</key>
-<array>
-    <string>com.example.notification_master.polling</string>
-</array>
-
 <!-- Required: explain why the app sends notifications -->
 <key>NSUserNotificationUsageDescription</key>
 <string>This app sends notifications to keep you updated.</string>
 ```
+
+> ℹ️ **Note:** `BGTaskSchedulerPermittedIdentifiers` is **not** needed on macOS.
+> The plugin uses an in-process `Timer` for polling on macOS — `BGTaskScheduler` is iOS-only.
 
 #### 3. AppDelegate.swift
 
@@ -271,7 +335,6 @@ Replace the content of `macos/Runner/AppDelegate.swift` with:
 ```swift
 import Cocoa
 import FlutterMacOS
-import notification_master
 import UserNotifications
 
 @main
@@ -279,10 +342,6 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
   override func applicationDidFinishLaunching(_ notification: Notification) {
     // Required: show notifications while app is in foreground
     UNUserNotificationCenter.current().delegate = self
-
-    // Required: register background polling task
-    NotificationMasterPlugin.registerBackgroundTask()
-
     super.applicationDidFinishLaunching(notification)
   }
 
@@ -310,11 +369,40 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
 }
 ```
 
+> ℹ️ No `import notification_master` or `registerBackgroundTask()` call needed on macOS —
+> the plugin handles the notification delegate internally and uses `Timer`-based polling.
+
+#### macOS HTTP Polling Setup
+
+macOS supports **two** polling modes:
+
+**Mode A — In-process polling (app must be open):** Uses `startNotificationPolling()`. Runs a `Timer` inside the Flutter app process.
+
+```dart
+await nm.startNotificationPolling(
+  pollingUrl: 'https://your-server.com/api/notifications',
+  intervalMinutes: 1,
+);
+```
+
+**Mode B — Background daemon (survives app close):** Uses `startBackgroundPollingService()`. Launches a standalone Swift binary (`notification_master_poller`) next to the `.app` bundle.
+
+```dart
+await nm.startBackgroundPollingService(
+  pollingUrl: 'https://your-server.com/api/notifications',
+  intervalMinutes: 1,
+);
+```
+
+The daemon uses `UNUserNotificationCenter` for notifications and falls back to `osascript` if the permission dialog was dismissed.
+
+> ℹ️ The `notification_master_poller` binary is built automatically when you run `flutter build macos`. It must be located in the same directory as your `.app` bundle's executable.
+
 ---
 
 ### 🪟 Windows
 
-No additional setup required. The plugin auto-detects the platform.
+No additional project setup is required. The plugin auto-detects the platform.
 
 **Windows-Specific Features:**
 - ✅ Native Windows Toast Notifications (WinRT API)
@@ -332,11 +420,298 @@ No additional setup required. The plugin auto-detects the platform.
 For detailed documentation, code examples, and best practices for all Windows notification types, see:
 - **[Windows Notifications Guide](WINDOWS_NOTIFICATIONS_GUIDE.md)** - Complete guide with examples for all 7 notification types
 
+#### Windows HTTP Polling Setup
+
+Windows polling runs via a standalone background daemon. No OS-level setup is required — the daemon binary is built automatically with `flutter build windows`.
+
+See the full guide below: [🪟 Windows — HTTP Polling (Background Daemon)](#-windows--http-polling-background-daemon)
+
 ---
 
-### 🐧 Linux
+### 🐧 Linux Setup
 
-No additional setup required. The plugin auto-detects the platform.
+No project-level configuration file changes are required. The plugin and its daemon are compiled automatically when you run `flutter build linux`.
+
+**System dependencies** (install once on the build machine):
+
+```bash
+# Ubuntu / Debian
+sudo apt-get install libnotify-dev libcurl4-openssl-dev libjson-glib-dev
+
+# Fedora / RHEL
+sudo dnf install libnotify-devel libcurl-devel json-glib-devel
+
+# Arch
+sudo pacman -S libnotify curl json-glib
+```
+
+These packages are already present on most desktop Linux distributions. They are only needed at **build time** — the resulting binary links them dynamically and they are available on any standard desktop distro at runtime.
+
+#### Linux HTTP Polling Setup
+
+Linux supports the same background daemon as Windows. The daemon is a standalone C++ binary (`notification_master_poller`) that uses `libnotify` for desktop notifications and `libcurl` for HTTP.
+
+```dart
+// Start the background daemon — runs even after app closes
+await nm.startBackgroundPollingService(
+  pollingUrl: 'https://your-server.com/api/notifications',
+  intervalMinutes: 1,
+);
+
+// Stop it
+await nm.stopBackgroundPollingService();
+
+// Check if it's running
+final running = await nm.isBackgroundPollingRunning();
+```
+
+See the full daemon guide below: [🐧 Linux — HTTP Polling (Background Daemon)](#-linux--http-polling-background-daemon)
+
+---
+
+### 🪟 Windows — HTTP Polling (Background Daemon)
+
+Windows polling works differently from Android/iOS. Instead of a system-managed background job, the plugin launches a **standalone background process** (`notification_master_poller.exe`) that keeps polling your server and showing toast notifications even after the main Flutter app is closed.
+
+#### How it works
+
+```
+Flutter app  ──startBackgroundPollingService()──►  notification_master_poller.exe
+                                                          │
+                                  ┌───────────────────────┘
+                                  │  reads URL + interval from registry
+                                  │  polls server every N minutes
+                                  │  shows Windows toast via WinToast
+                                  │  writes log → notification_master_poller.log
+                                  └──► survives app close / restart
+```
+
+The daemon executable is built automatically when you run `flutter build windows` or `flutter run` on Windows — no separate build step is needed.
+
+#### Step 1 — Dart setup (same as other platforms)
+
+```dart
+import 'package:notification_master/notification_master.dart';
+
+final nm = NotificationMaster();
+
+// 1. Check / request permission
+final granted = await nm.checkNotificationPermission();
+if (!granted) await nm.requestNotificationPermission();
+
+// 2. Start the background poller daemon
+//    The daemon process is launched next to your app's .exe.
+final ok = await nm.startBackgroundPollingService(
+  pollingUrl: 'https://your-server.com/api/notifications',
+  intervalMinutes: 1, // minimum recommended: 1
+);
+
+if (!ok) {
+  // Daemon .exe not found — make sure you built with flutter build windows
+  debugPrint('Failed to start background poller');
+}
+```
+
+#### Step 2 — Server JSON format
+
+Your server endpoint must return JSON in this exact shape:
+
+```json
+{
+  "notifications": [
+    {
+      "title": "New message",
+      "message": "You have 3 unread messages",
+      "bigText": "Optional expanded text shown in the toast",
+      "imageUrl": "https://example.com/avatar.png",
+      "channelId": "high_priority_channel"
+    }
+  ]
+}
+```
+
+- Return an **empty array** (`"notifications": []`) when there is nothing new — the daemon skips silently.
+- Fields `bigText`, `imageUrl`, and `channelId` are optional.
+
+#### Step 3 — Stop the daemon
+
+```dart
+await nm.stopBackgroundPollingService();
+```
+
+The daemon process is terminated and the registry entry is cleared. The next app launch will not restart it automatically.
+
+#### Checking daemon status
+
+```dart
+final running = await nm.isBackgroundPollingRunning();
+print('Daemon running: $running');
+```
+
+#### Reading the daemon log
+
+The daemon writes a log file next to the app `.exe`:
+
+```
+<build-output>\runner\Debug\notification_master_poller.log
+```
+
+You can print it into your app's debug panel at runtime:
+
+```dart
+import 'dart:io';
+
+Future<void> printDaemonLog() async {
+  final dir = File(Platform.resolvedExecutable).parent.path;
+  final log = File('$dir\\notification_master_poller.log');
+  if (await log.exists()) {
+    final lines = await log.readAsLines();
+    for (final l in lines.reversed.take(30)) debugPrint(l);
+  }
+}
+```
+
+A typical healthy log looks like:
+
+```
+[NM-POLLER] [10:00:01.234] Daemon started. AUMI=NotificationMaster...
+[NM-POLLER] [10:00:01.235] PollingLoop: WinToast thread-instance initialized OK
+[NM-POLLER] [10:00:01.312] PollOnce: requesting https://your-server.com/api/notifications
+[NM-POLLER] [10:00:01.580] PollOnce: got 228 bytes
+[NM-POLLER] [10:00:01.581] ShowFromJson: title='New message' message='...' result=1234 err=0
+```
+
+`err=0` means the toast was shown successfully.
+
+#### Deduplication
+
+The daemon automatically skips re-showing a notification whose `title + message` was already shown within the last **1 hour**. This prevents flooding the user when the server keeps returning the same undelivered row. The log shows:
+
+```
+[NM-POLLER] ShowFromJson: SKIPPED (already shown recently): title='...'
+```
+
+#### Complete working example
+
+See `example/lib/simple_polling_page.dart` for a full UI that covers:
+- Starting / stopping the background daemon
+- Force-polling for instant testing
+- Viewing the daemon log in-app
+- SQL helper to reset `delivered_at` rows during development
+
+---
+
+### 🐧 Linux — HTTP Polling (Background Daemon)
+
+Linux uses the same daemon architecture as Windows. A standalone C++ binary (`notification_master_poller`) is launched as a separate process and keeps running after the main app closes.
+
+#### How it works
+
+```
+Flutter app  ──startBackgroundPollingService()──►  notification_master_poller  (ELF binary)
+                                                          │
+                                  ┌───────────────────────┘
+                                  │  reads URL + interval from
+                                  │  ~/.config/notification_master/poller.conf
+                                  │  polls server every N minutes (libcurl)
+                                  │  shows desktop notification via libnotify
+                                  │  writes log → notification_master_poller.log
+                                  └──► survives app close / restart
+```
+
+**Requirements:** `libnotify`, `libcurl`, `libjson-glib` — all standard on Ubuntu/Fedora/Arch.
+
+#### Dart setup (identical to Windows)
+
+```dart
+final ok = await nm.startBackgroundPollingService(
+  pollingUrl: 'https://your-server.com/api/notifications',
+  intervalMinutes: 1,
+);
+```
+
+#### Config file
+
+The daemon reads config from `~/.config/notification_master/poller.conf`:
+
+```ini
+[poller]
+url      = https://your-server.com/api/notifications
+interval = 1
+enabled  = 1
+```
+
+The plugin writes this file automatically before launching the daemon. You can also edit it manually.
+
+#### Log file
+
+Written next to the daemon executable:
+
+```
+<build-output>/linux/x64/debug/bundle/notification_master_poller.log
+```
+
+A healthy log:
+
+```
+[NM-POLLER] [10:00:01.123] daemon started — pid=12345
+[NM-POLLER] [10:00:01.124] polling_loop: started
+[NM-POLLER] [10:00:01.200] polling_loop: requesting https://your-server.com/api/notifications
+[NM-POLLER] [10:00:01.380] polling_loop: got 228 bytes
+[NM-POLLER] [10:00:01.381] show_notification: title='New message' body='You have 3 unread messages'
+```
+
+---
+
+### 🍎 macOS — HTTP Polling (Background Daemon)
+
+macOS uses a standalone Swift CLI binary (`notification_master_poller`) launched as a separate process. It uses `UNUserNotificationCenter` for notifications and `URLSession` for HTTP.
+
+#### How it works
+
+```
+Flutter app  ──startBackgroundPollingService()──►  notification_master_poller  (Swift binary)
+                                                          │
+                                  ┌───────────────────────┘
+                                  │  reads URL + interval from
+                                  │  UserDefaults (suite: com.notification-master.poller)
+                                  │  polls server every N minutes (URLSession)
+                                  │  shows notification via UNUserNotificationCenter
+                                  │    (falls back to osascript if permission denied)
+                                  │  writes log → notification_master_poller.log
+                                  └──► survives app close / restart
+```
+
+#### Dart setup (identical to Windows/Linux)
+
+```dart
+final ok = await nm.startBackgroundPollingService(
+  pollingUrl: 'https://your-server.com/api/notifications',
+  intervalMinutes: 1,
+);
+```
+
+#### Config storage
+
+Config is stored in `UserDefaults` with suite `com.notification-master.poller`:
+
+| Key | Value |
+|-----|-------|
+| `nm_bg_poll_url` | polling endpoint URL |
+| `nm_bg_poll_interval` | interval in minutes |
+| `nm_bg_poll_enabled` | `"1"` = running, `"0"` = stop |
+
+#### Notification permission
+
+On macOS the daemon requests `UNUserNotificationCenter` authorisation at startup. If denied, it falls back to `osascript`'s `display notification` which works without a bundle ID.
+
+#### Log file
+
+Written next to the daemon binary (same directory as the `.app`):
+
+```
+notification_master_poller.log
+```
 
 ---
 
@@ -1203,7 +1578,8 @@ class _HomePageState extends State<HomePage> {
 
 ## Important Notes
 
-- **Android 13+**: Always request `POST_NOTIFICATIONS` permission in Manifest and code.
+- **Android permissions**: The plugin does **not** declare permissions automatically. Add only the permissions your app needs to `android/app/src/main/AndroidManifest.xml` — see the Android setup section above.
+- **Android 13+**: Always request `POST_NOTIFICATIONS` permission at runtime before showing notifications.
 - **Web**: Safari has limited support.
 - **Foreground Service**: Only supported on Android.
 - **Background Polling**: Does not work on Web; polling only occurs while the app is open.
@@ -1211,6 +1587,7 @@ class _HomePageState extends State<HomePage> {
 - **App Icon**: Use `showStyledNotification()` to display the app icon in notifications. ⭐
 - **Sound**: Custom channels now properly support sound with `enableSound: true`. ✅
 - **iOS**: Requires iOS 14.0+. Supports iOS 14 through iOS 26+. 📱
+- **macOS polling**: Uses an in-process `Timer` — polling stops when the app is closed. `BGTaskScheduler` is iOS-only.
 
 ---
 

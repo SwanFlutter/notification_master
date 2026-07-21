@@ -1,0 +1,279 @@
+name: CI — Build & Test (Linux · macOS · Windows · iOS)
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Each job runs on a different OS to validate the native code.
+# All three jobs share the same Flutter version so plugin API is consistent.
+# ─────────────────────────────────────────────────────────────────────────────
+
+env:
+  FLUTTER_VERSION: "3.32.0"
+
+jobs:
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # 1. Dart — static analysis + unit tests (fast, any OS)
+  # ───────────────────────────────────────────────────────────────────────────
+  dart_analyze:
+    name: "Dart analyze & test"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Dart analyze (plugin)
+        run: dart analyze lib/ --fatal-infos
+
+      - name: Dart analyze (example)
+        working-directory: example
+        run: |
+          flutter pub get
+          dart analyze lib/ --fatal-infos
+
+      - name: Run Dart unit tests
+        run: flutter test
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # 2. Linux — build plugin .so + daemon binary
+  # ───────────────────────────────────────────────────────────────────────────
+  linux_build:
+    name: "Linux — build plugin & daemon"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            clang cmake ninja-build pkg-config \
+            libgtk-3-dev \
+            libnotify-dev \
+            libcurl4-openssl-dev \
+            libjson-glib-dev \
+            libsoup-3.0-dev \
+            libglib2.0-dev
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Enable Linux desktop
+        run: flutter config --enable-linux-desktop
+
+      - name: flutter pub get (example)
+        working-directory: example
+        run: flutter pub get
+
+      - name: Build Linux example (debug)
+        working-directory: example
+        run: flutter build linux --debug
+
+      - name: Verify plugin .so exists
+        run: |
+          SO=$(find example/build/linux -name "libnotification_master_plugin.so" | head -1)
+          echo "Plugin SO: $SO"
+          test -n "$SO" || (echo "ERROR: plugin .so not found" && exit 1)
+
+      - name: Verify daemon binary exists
+        run: |
+          DAEMON=$(find example/build/linux -name "notification_master_poller" -type f | head -1)
+          echo "Daemon: $DAEMON"
+          test -n "$DAEMON" || (echo "ERROR: notification_master_poller not found" && exit 1)
+          file "$DAEMON"
+
+      - name: Smoke-test daemon (--help / immediate exit)
+        run: |
+          DAEMON=$(find example/build/linux -name "notification_master_poller" -type f | head -1)
+          # Daemon exits immediately when no url is configured (enabled=0 or no url).
+          # Run with a 3-second timeout; exit code 0 or 1 are both acceptable here
+          # because we just want to confirm the binary is not crashing with SIGSEGV.
+          timeout 3 "$DAEMON" || CODE=$?
+          echo "Daemon exit code: ${CODE:-0}"
+          if [ "${CODE:-0}" -eq 139 ]; then
+            echo "ERROR: daemon segfaulted!"
+            exit 1
+          fi
+          echo "Daemon smoke test passed"
+
+      - name: Upload Linux build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-build
+          path: |
+            example/build/linux/**/libnotification_master_plugin.so
+            example/build/linux/**/notification_master_poller
+          retention-days: 7
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # 3. macOS — build plugin + daemon Swift binary
+  # ───────────────────────────────────────────────────────────────────────────
+  macos_build:
+    name: "macOS — build plugin & daemon"
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Enable macOS desktop
+        run: flutter config --enable-macos-desktop
+
+      - name: flutter pub get (example)
+        working-directory: example
+        run: flutter pub get
+
+      - name: Build macOS example (debug)
+        working-directory: example
+        run: flutter build macos --debug
+
+      - name: Verify plugin dylib exists
+        run: |
+          DYLIB=$(find example/build/macos -name "notification_master.framework" -o \
+                       -name "libnotification_master*.dylib" | head -1)
+          echo "Plugin: $DYLIB"
+          test -n "$DYLIB" || (echo "ERROR: plugin dylib/framework not found" && exit 1)
+
+      - name: Build daemon Swift binary separately (swift build)
+        working-directory: macos/notification_master
+        run: |
+          swift build -c release --product notification_master_poller 2>&1
+          DAEMON=$(find .build -name "notification_master_poller" -type f | head -1)
+          echo "Daemon binary: $DAEMON"
+          test -n "$DAEMON" || (echo "ERROR: daemon binary not found after swift build" && exit 1)
+          file "$DAEMON"
+
+      - name: Smoke-test macOS daemon
+        working-directory: macos/notification_master
+        run: |
+          DAEMON=$(find .build -name "notification_master_poller" -type f | head -1)
+          # Daemon will exit quickly (no url configured). Timeout guards against hang.
+          timeout 4 "$DAEMON" || CODE=$?
+          echo "Exit: ${CODE:-0}"
+          if [ "${CODE:-0}" -eq 139 ] || [ "${CODE:-0}" -eq 134 ]; then
+            echo "ERROR: daemon crashed (SIGSEGV/SIGABRT)"
+            exit 1
+          fi
+          echo "macOS daemon smoke test passed"
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-build
+          path: |
+            macos/notification_master/.build/release/notification_master_poller
+          retention-days: 7
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # 4. iOS — build plugin (no simulator run, just compile check)
+  # ───────────────────────────────────────────────────────────────────────────
+  ios_build:
+    name: "iOS — build plugin (compile check)"
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: flutter pub get (example)
+        working-directory: example
+        run: flutter pub get
+
+      - name: Build iOS example (no-codesign)
+        working-directory: example
+        run: flutter build ios --debug --no-codesign
+
+      - name: Verify iOS .app exists
+        run: |
+          APP=$(find example/build/ios -name "*.app" -maxdepth 5 | head -1)
+          echo "iOS .app: $APP"
+          test -n "$APP" || (echo "ERROR: .app bundle not found" && exit 1)
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # 5. Windows — build plugin DLL + daemon .exe
+  # ───────────────────────────────────────────────────────────────────────────
+  windows_build:
+    name: "Windows — build plugin & daemon"
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: flutter pub get (example)
+        working-directory: example
+        run: flutter pub get
+
+      - name: Build Windows example (debug)
+        working-directory: example
+        run: flutter build windows --debug
+
+      - name: Verify plugin DLL exists
+        shell: pwsh
+        run: |
+          $dll = Get-ChildItem "example\build\windows" -Recurse -Filter "notification_master_plugin.dll" | Select-Object -First 1
+          Write-Host "Plugin DLL: $($dll.FullName)"
+          if (-not $dll) { Write-Error "Plugin DLL not found"; exit 1 }
+
+      - name: Verify daemon .exe exists
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem "example\build\windows" -Recurse -Filter "notification_master_poller.exe" | Select-Object -First 1
+          Write-Host "Daemon: $($exe.FullName)"
+          if (-not $exe) { Write-Error "Daemon .exe not found"; exit 1 }
+
+      - name: Smoke-test Windows daemon
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem "example\build\windows" -Recurse -Filter "notification_master_poller.exe" | Select-Object -First 1
+          # Start daemon, wait 3 seconds, then stop it.
+          # We just confirm it starts without immediate crash.
+          $p = Start-Process -FilePath $exe.FullName -PassThru -WindowStyle Hidden
+          Start-Sleep -Seconds 3
+          $exitCode = $p.ExitCode
+          if (-not $p.HasExited) {
+            Stop-Process -Id $p.Id -Force
+            Write-Host "Daemon was still running after 3s (good — it is a long-running process)"
+          } elseif ($exitCode -eq 0 -or $exitCode -eq 1) {
+            Write-Host "Daemon exited cleanly (no url configured): exit=$exitCode"
+          } else {
+            Write-Error "Daemon crashed with exit code $exitCode"
+            exit 1
+          }
+          Write-Host "Windows daemon smoke test passed"
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: |
+            example/build/windows/**/notification_master_plugin.dll
+            example/build/windows/**/notification_master_poller.exe
+          retention-days: 7

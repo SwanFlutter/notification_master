@@ -34,12 +34,51 @@ set_target_properties(${PLUGIN_NAME} PROPERTIES
   CXX_VISIBILITY_PRESET hidden)
 target_compile_definitions(${PLUGIN_NAME} PRIVATE FLUTTER_PLUGIN_IMPL)
 
+# ── External library dependencies ───────────────────────────────────────────
+# libnotify  — desktop notification display (notify-send equivalent, in-process)
+# libsoup-3.0 — async HTTP client for the polling loop
+#   Falls back to libsoup-2.4 on older distros (Ubuntu 20.04, etc.)
+# json-glib-1.0 — JSON parsing for the polling response
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(LIBNOTIFY  REQUIRED libnotify)
+pkg_check_modules(JSON_GLIB  REQUIRED json-glib-1.0)
+
+# Try libsoup 3 first; fall back to libsoup 2.4
+pkg_check_modules(LIBSOUP3 libsoup-3.0)
+if(LIBSOUP3_FOUND)
+  set(LIBSOUP_INCLUDE_DIRS ${LIBSOUP3_INCLUDE_DIRS})
+  set(LIBSOUP_LIBRARIES    ${LIBSOUP3_LIBRARIES})
+  set(LIBSOUP_CFLAGS_OTHER ${LIBSOUP3_CFLAGS_OTHER})
+  target_compile_definitions(${PLUGIN_NAME} PRIVATE SOUP_VERSION=3)
+else()
+  pkg_check_modules(LIBSOUP2 REQUIRED libsoup-2.4)
+  set(LIBSOUP_INCLUDE_DIRS ${LIBSOUP2_INCLUDE_DIRS})
+  set(LIBSOUP_LIBRARIES    ${LIBSOUP2_LIBRARIES})
+  set(LIBSOUP_CFLAGS_OTHER ${LIBSOUP2_CFLAGS_OTHER})
+  target_compile_definitions(${PLUGIN_NAME} PRIVATE SOUP_VERSION=2)
+endif()
+
 # Source include directories and library dependencies. Add any plugin-specific
 # dependencies here.
 target_include_directories(${PLUGIN_NAME} INTERFACE
   "${CMAKE_CURRENT_SOURCE_DIR}/include")
+
+target_include_directories(${PLUGIN_NAME} PRIVATE
+  ${LIBNOTIFY_INCLUDE_DIRS}
+  ${LIBSOUP_INCLUDE_DIRS}
+  ${JSON_GLIB_INCLUDE_DIRS})
+
+target_compile_options(${PLUGIN_NAME} PRIVATE
+  ${LIBNOTIFY_CFLAGS_OTHER}
+  ${LIBSOUP_CFLAGS_OTHER}
+  ${JSON_GLIB_CFLAGS_OTHER})
+
 target_link_libraries(${PLUGIN_NAME} PRIVATE flutter)
 target_link_libraries(${PLUGIN_NAME} PRIVATE PkgConfig::GTK)
+target_link_libraries(${PLUGIN_NAME} PRIVATE
+  ${LIBNOTIFY_LIBRARIES}
+  ${LIBSOUP_LIBRARIES}
+  ${JSON_GLIB_LIBRARIES})
 
 # List of absolute paths to libraries that should be bundled with the plugin.
 # This list could contain prebuilt libraries, or libraries created by an
@@ -47,6 +86,32 @@ target_link_libraries(${PLUGIN_NAME} PRIVATE PkgConfig::GTK)
 set(notification_master_bundled_libraries
   ""
   PARENT_SCOPE
+)
+
+# === Background poller daemon ===
+# A standalone executable that keeps polling + showing desktop notifications
+# even after the main Flutter app is closed. Launched by the plugin via
+# startBackgroundPollingService(). Uses libcurl for HTTP (simpler dependency
+# for a standalone binary than libsoup).
+find_package(CURL REQUIRED)
+
+add_executable(notification_master_poller
+  "nm_background_poller_linux.cpp"
+)
+target_include_directories(notification_master_poller PRIVATE
+  ${LIBNOTIFY_INCLUDE_DIRS}
+  ${JSON_GLIB_INCLUDE_DIRS}
+  ${CURL_INCLUDE_DIRS}
+)
+target_compile_options(notification_master_poller PRIVATE
+  ${LIBNOTIFY_CFLAGS_OTHER}
+  ${JSON_GLIB_CFLAGS_OTHER}
+)
+target_link_libraries(notification_master_poller PRIVATE
+  ${LIBNOTIFY_LIBRARIES}
+  ${JSON_GLIB_LIBRARIES}
+  ${CURL_LIBRARIES}
+  pthread
 )
 
 # === Tests ===
@@ -82,8 +147,16 @@ add_executable(${TEST_RUNNER}
 )
 apply_standard_settings(${TEST_RUNNER})
 target_include_directories(${TEST_RUNNER} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+target_include_directories(${TEST_RUNNER} PRIVATE
+  ${LIBNOTIFY_INCLUDE_DIRS}
+  ${LIBSOUP_INCLUDE_DIRS}
+  ${JSON_GLIB_INCLUDE_DIRS})
 target_link_libraries(${TEST_RUNNER} PRIVATE flutter)
 target_link_libraries(${TEST_RUNNER} PRIVATE PkgConfig::GTK)
+target_link_libraries(${TEST_RUNNER} PRIVATE
+  ${LIBNOTIFY_LIBRARIES}
+  ${LIBSOUP_LIBRARIES}
+  ${JSON_GLIB_LIBRARIES})
 target_link_libraries(${TEST_RUNNER} PRIVATE gtest_main gmock)
 
 # Enable automatic test discovery.

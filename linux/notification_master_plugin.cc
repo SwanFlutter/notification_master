@@ -16,6 +16,7 @@
 #include <mutex>
 #include <signal.h>
 #include <ctime>
+#include <unistd.h>
 
 #include "notification_master_plugin_private.h"
 
@@ -30,6 +31,9 @@ struct _NotificationMasterPlugin {
   gboolean is_foreground_active;
   std::thread* polling_thread;
   std::atomic<bool> stop_polling;
+  // Background daemon process (startBackgroundPollingService)
+  GPid daemon_pid;
+  gboolean daemon_active;
 };
 
 G_DEFINE_TYPE(NotificationMasterPlugin, notification_master_plugin, g_object_get_type())
@@ -37,6 +41,9 @@ G_DEFINE_TYPE(NotificationMasterPlugin, notification_master_plugin, g_object_get
 // Forward declarations
 static void start_polling_service(NotificationMasterPlugin* self, const gchar* polling_url, gint interval_minutes);
 static void stop_polling_service(NotificationMasterPlugin* self);
+static gboolean start_background_daemon(NotificationMasterPlugin* self, const gchar* url, gint interval_minutes);
+static void     stop_background_daemon(NotificationMasterPlugin* self);
+static gboolean is_background_daemon_running(NotificationMasterPlugin* self);
 
 // Scheduled (background) notification tracking for Linux. A detached child
 // process (see scheduleNotification) survives the app closing; we keep its pid
@@ -273,6 +280,16 @@ static void notification_master_plugin_handle_method_call(
           interval_minutes = fl_value_get_int(interval_minutes_value);
         }
         
+        // Stop any running service first (mutual exclusivity).
+        stop_polling_service(self);
+        self->is_foreground_active = FALSE;
+
+        // Persist so getActiveNotificationService returns the right value.
+        GKeyFile* kf = load_prefs();
+        g_key_file_set_string(kf, "service", "active", "polling");
+        save_prefs(kf);
+        g_key_file_free(kf);
+
         start_polling_service(self, polling_url, interval_minutes);
         g_autoptr(FlValue) result = fl_value_new_bool(TRUE);
         response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
@@ -301,8 +318,16 @@ static void notification_master_plugin_handle_method_call(
           interval_minutes = fl_value_get_int(interval_minutes_value);
         }
         
-        // Linux doesn't have foreground services in the same way as Android
-        // We'll treat this as starting the polling service
+        // Stop any running service first (mutual exclusivity).
+        stop_polling_service(self);
+
+        // Persist service type.
+        GKeyFile* kf = load_prefs();
+        g_key_file_set_string(kf, "service", "active", "foreground");
+        save_prefs(kf);
+        g_key_file_free(kf);
+
+        // Linux has no foreground service concept; treat as polling.
         self->is_foreground_active = TRUE;
         start_polling_service(self, polling_url, interval_minutes);
         g_autoptr(FlValue) result = fl_value_new_bool(TRUE);
@@ -321,15 +346,21 @@ static void notification_master_plugin_handle_method_call(
     g_autoptr(FlValue) result = fl_value_new_bool(TRUE);
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
   } else if (strcmp(method, "setFirebaseAsActiveService") == 0) {
-    // Not applicable on Linux
-    g_autoptr(FlValue) result = fl_value_new_bool(FALSE);
-    response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
   } else if (strcmp(method, "getActiveNotificationService") == 0) {
     const gchar* service = "none";
     if (self->is_foreground_active) {
       service = "foreground";
     } else if (self->is_polling_active) {
       service = "polling";
+    } else {
+      // Check if firebase was set persistently.
+      GKeyFile* kf = load_prefs();
+      gchar* stored = g_key_file_get_string(kf, "service", "active", nullptr);
+      g_key_file_free(kf);
+      if (g_strcmp0(stored, "firebase") == 0) {
+        service = "firebase";
+      }
+      g_free(stored);
     }
     g_autoptr(FlValue) result = fl_value_new_string(service);
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
@@ -498,6 +529,62 @@ static void notification_master_plugin_handle_method_call(
       fl_value_append_take(list, fl_value_new_int(kv.first));
     }
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(list));
+
+  // ── Android-only permission gates — always true / no-op on Linux ─────────
+  } else if (strcmp(method, "canScheduleExactAlarms") == 0) {
+    g_autoptr(FlValue) result = fl_value_new_bool(TRUE);
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
+  } else if (strcmp(method, "openExactAlarmSettings") == 0) {
+    g_autoptr(FlValue) result = fl_value_new_bool(FALSE);
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
+  } else if (strcmp(method, "openAppNotificationSettings") == 0) {
+    // Open GNOME notification settings if available; ignore errors.
+    g_spawn_command_line_async("gnome-control-center notifications", nullptr);
+    g_autoptr(FlValue) result = fl_value_new_bool(TRUE);
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
+
+  // ── Firebase — not applicable on Linux (returns true, no-op) ────────────
+  } else if (strcmp(method, "setFirebaseAsActiveService") == 0) {
+    // Mark firebase as active so getActiveNotificationService() reports it.
+    GKeyFile* kf = load_prefs();
+    g_key_file_set_string(kf, "service", "active", "firebase");
+    save_prefs(kf);
+    g_key_file_free(kf);
+    stop_polling_service(self);
+    self->is_foreground_active = FALSE;
+    g_autoptr(FlValue) result = fl_value_new_bool(TRUE);
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
+
+  // ── Background daemon (notification_master_poller) ─────────────────────
+  } else if (strcmp(method, "startBackgroundPollingService") == 0) {
+    if (fl_value_get_type(args) == FL_VALUE_TYPE_MAP) {
+      FlValue* url_val = fl_value_lookup_string(args, "pollingUrl");
+      FlValue* iv_val  = fl_value_lookup_string(args, "intervalMinutes");
+      const gchar* url = (url_val && fl_value_get_type(url_val) == FL_VALUE_TYPE_STRING)
+                         ? fl_value_get_string(url_val) : nullptr;
+      gint interval    = (iv_val  && fl_value_get_type(iv_val)  == FL_VALUE_TYPE_INT)
+                         ? (gint)fl_value_get_int(iv_val) : 15;
+      if (!url || strlen(url) == 0) {
+        response = FL_METHOD_RESPONSE(fl_method_error_response_new(
+            "INVALID_ARGUMENT", "pollingUrl is required", nullptr));
+      } else {
+        gboolean ok = start_background_daemon(self, url, interval);
+        g_autoptr(FlValue) result = fl_value_new_bool(ok);
+        response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
+      }
+    } else {
+      response = FL_METHOD_RESPONSE(fl_method_error_response_new(
+          "INVALID_ARGUMENT", "Invalid arguments", nullptr));
+    }
+  } else if (strcmp(method, "stopBackgroundPollingService") == 0) {
+    stop_background_daemon(self);
+    g_autoptr(FlValue) result = fl_value_new_bool(TRUE);
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
+  } else if (strcmp(method, "isBackgroundPollingRunning") == 0) {
+    gboolean running = is_background_daemon_running(self);
+    g_autoptr(FlValue) result = fl_value_new_bool(running);
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
+
   } else {
     response = FL_METHOD_RESPONSE(fl_method_not_implemented_response_new());
   }
@@ -658,26 +745,239 @@ static FlValue* get_subscribed_topics() {
   return list;
 }
 
-// Function to start polling for notifications
-static void start_polling_service(NotificationMasterPlugin* self, const gchar* polling_url, gint interval_minutes) {
+// ── HTTP polling helpers ──────────────────────────────────────────────────────
+// Parse and display a JSON polling response.
+// Expected shape: { "notifications": [ { "title": "...", "message": "...",
+//                                        "bigText": "..." }, ... ] }
+// Non-conforming responses fall back to a single generic notification.
+static void process_poll_response(const gchar* body, gsize len) {
+  if (!body || len == 0) {
+    show_notification("Notification", "New notification received", "default");
+    return;
+  }
+
+  GError* err = nullptr;
+  JsonParser* parser = json_parser_new();
+  gboolean ok = json_parser_load_from_data(parser, body, (gssize)len, &err);
+
+  if (!ok || err) {
+    g_print("[NotificationMaster] JSON parse error: %s\n",
+            err ? err->message : "unknown");
+    if (err) g_error_free(err);
+    g_object_unref(parser);
+    show_notification("Notification", "New notification received", "default");
+    return;
+  }
+
+  JsonNode* root = json_parser_get_root(parser);
+  if (!root || !JSON_NODE_HOLDS_OBJECT(root)) {
+    g_object_unref(parser);
+    show_notification("Notification", "New notification received", "default");
+    return;
+  }
+
+  JsonObject* obj = json_node_get_object(root);
+  if (!json_object_has_member(obj, "notifications")) {
+    g_object_unref(parser);
+    show_notification("Notification", "New notification received", "default");
+    return;
+  }
+
+  JsonArray* arr = json_object_get_array_member(obj, "notifications");
+  guint count = json_array_get_length(arr);
+  for (guint i = 0; i < count; i++) {
+    JsonObject* n = json_array_get_object_element(arr, i);
+    const gchar* title   = json_object_has_member(n, "title")   ?
+                           json_object_get_string_member(n, "title")   : "Notification";
+    const gchar* big_text = json_object_has_member(n, "bigText") ?
+                            json_object_get_string_member(n, "bigText") : nullptr;
+    const gchar* message = json_object_has_member(n, "message") ?
+                           json_object_get_string_member(n, "message") : "";
+    const gchar* body_text = (big_text && big_text[0]) ? big_text : message;
+    show_notification(title, body_text, "default");
+  }
+
+  g_object_unref(parser);
+}
+
+// Perform one synchronous HTTP GET using libsoup and process the response.
+// Called from the background polling thread — must not touch GTK/GLib main loop.
+static void perform_poll(const gchar* polling_url) {
+#if SOUP_VERSION == 3
+  SoupSession* session = soup_session_new();
+  SoupMessage* msg = soup_message_new(SOUP_METHOD_GET, polling_url);
+  if (!msg) { g_object_unref(session); return; }
+
+  GError* err = nullptr;
+  GBytes* bytes = soup_session_send_and_read(session, msg, nullptr, &err);
+  if (err) {
+    g_print("[NotificationMaster] HTTP error: %s\n", err->message);
+    g_error_free(err);
+  } else if (bytes) {
+    gsize len = 0;
+    const gchar* data = (const gchar*)g_bytes_get_data(bytes, &len);
+    process_poll_response(data, len);
+    g_bytes_unref(bytes);
+  }
+  g_object_unref(msg);
+  g_object_unref(session);
+#else
+  // libsoup 2.4 synchronous API
+  SoupSession* session = soup_session_new();
+  SoupMessage* msg = soup_message_new(SOUP_METHOD_GET, polling_url);
+  if (!msg) { g_object_unref(session); return; }
+
+  guint status = soup_session_send_message(session, msg);
+  if (SOUP_STATUS_IS_SUCCESSFUL(status)) {
+    SoupMessageBody* body = msg->response_body;
+    if (body && body->data) {
+      process_poll_response(body->data, (gsize)body->length);
+    }
+  } else {
+    g_print("[NotificationMaster] HTTP status %u for %s\n", status, polling_url);
+  }
+  g_object_unref(msg);
+  g_object_unref(session);
+#endif
+}
+
+// ---------------------------------------------------------------------------
+// Background daemon helpers
+// ---------------------------------------------------------------------------
+
+// Write a value to ~/.config/notification_master/poller.conf
+static void daemon_write_conf(const gchar* key, const gchar* value) {
+  gchar* path = g_build_filename(g_get_user_config_dir(),
+                                 "notification_master", "poller.conf", nullptr);
+  gchar* dir  = g_build_filename(g_get_user_config_dir(),
+                                 "notification_master", nullptr);
+  g_mkdir_with_parents(dir, 0700);
+
+  GKeyFile* kf = g_key_file_new();
+  g_key_file_load_from_file(kf, path, G_KEY_FILE_NONE, nullptr);
+  g_key_file_set_string(kf, "poller", key, value);
+  g_key_file_save_to_file(kf, path, nullptr);
+
+  g_key_file_free(kf);
+  g_free(dir);
+  g_free(path);
+}
+
+static gboolean start_background_daemon(NotificationMasterPlugin* self,
+                                        const gchar* url,
+                                        gint interval_minutes) {
+  // If already running, update URL/interval and return success.
+  if (is_background_daemon_running(self)) {
+    daemon_write_conf("url", url);
+    gchar* iv = g_strdup_printf("%d", interval_minutes > 0 ? interval_minutes : 15);
+    daemon_write_conf("interval", iv);
+    g_free(iv);
+    return TRUE;
+  }
+
+  // Locate the daemon executable next to our own binary.
+  // /proc/self/exe -> .../runner/notification_master_example
+  // daemon lives in the same directory.
+  char self_path[4096] = {};
+  ssize_t n = readlink("/proc/self/exe", self_path, sizeof(self_path) - 1);
+  if (n <= 0) return FALSE;
+  gchar* exe_dir  = g_path_get_dirname(self_path);
+  gchar* daemon   = g_build_filename(exe_dir, "notification_master_poller", nullptr);
+  g_free(exe_dir);
+
+  if (!g_file_test(daemon, G_FILE_TEST_IS_EXECUTABLE)) {
+    g_printerr("[NM] daemon not found at %s\n", daemon);
+    g_free(daemon);
+    return FALSE;
+  }
+
+  gchar iv_str[32];
+  snprintf(iv_str, sizeof(iv_str), "%d", interval_minutes > 0 ? interval_minutes : 15);
+
+  gchar* argv[] = {
+    daemon,
+    const_cast<gchar*>("--url"),      const_cast<gchar*>(url),
+    const_cast<gchar*>("--interval"), iv_str,
+    nullptr
+  };
+
+  GError*    err    = nullptr;
+  GPid       pid    = 0;
+  gboolean   spawned = g_spawn_async(
+      nullptr, argv, nullptr,
+      (GSpawnFlags)(G_SPAWN_DO_NOT_REAP_CHILD |
+                    G_SPAWN_STDOUT_TO_DEV_NULL |
+                    G_SPAWN_STDERR_TO_DEV_NULL),
+      nullptr, nullptr, &pid, &err);
+
+  g_free(daemon);
+
+  if (!spawned) {
+    g_printerr("[NM] failed to launch daemon: %s\n",
+               err ? err->message : "unknown");
+    if (err) g_error_free(err);
+    return FALSE;
+  }
+
+  self->daemon_pid    = pid;
+  self->daemon_active = TRUE;
+  daemon_write_conf("enabled", "1");
+  return TRUE;
+}
+
+static void stop_background_daemon(NotificationMasterPlugin* self) {
+  daemon_write_conf("enabled", "0");
+
+  if (self->daemon_active && self->daemon_pid > 0) {
+    kill(self->daemon_pid, SIGTERM);
+    g_spawn_close_pid(self->daemon_pid);
+    self->daemon_pid    = 0;
+    self->daemon_active = FALSE;
+  }
+}
+
+static gboolean is_background_daemon_running(NotificationMasterPlugin* self) {
+  if (!self->daemon_active || self->daemon_pid <= 0) return FALSE;
+
+  // kill(pid, 0) checks if process exists without sending a signal.
+  if (kill(self->daemon_pid, 0) == 0) return TRUE;
+
+  // Process gone — clean up state.
+  g_spawn_close_pid(self->daemon_pid);
+  self->daemon_pid    = 0;
+  self->daemon_active = FALSE;
+  return FALSE;
+}
+
+// Start the background polling thread with real HTTP + JSON parsing.
+static void start_polling_service(NotificationMasterPlugin* self,
+                                  const gchar* polling_url,
+                                  gint interval_minutes) {
   if (self->is_polling_active) return;
-  
+
   self->is_polling_active = TRUE;
   self->stop_polling = false;
-  
-  // Start polling in a separate thread
-  self->polling_thread = new std::thread([self, polling_url, interval_minutes]() {
-    while (!self->stop_polling) {
-      try {
-        // In a real implementation, you would make an HTTP request to the polling_url
-        // and parse the JSON response to show notifications
-        // For now, we'll just sleep for the specified interval
-        
-        // Sleep for the specified interval
-        std::this_thread::sleep_for(std::chrono::minutes(interval_minutes));
-      }
-      catch (...) {
-        // Handle any exceptions
+
+  // Capture URL as an owned copy so the thread always has a valid pointer.
+  std::string url_copy(polling_url ? polling_url : "");
+  gint interval = (interval_minutes > 0) ? interval_minutes : 15;
+
+  self->polling_thread = new std::thread([self, url_copy, interval]() {
+    // Fire one poll immediately on start.
+    if (!self->stop_polling && !url_copy.empty()) {
+      perform_poll(url_copy.c_str());
+    }
+
+    // Then repeat every `interval` minutes, checking stop_polling every second
+    // so shutdown is responsive without sleeping the full interval.
+    for (gint elapsed = 0; !self->stop_polling; elapsed++) {
+      std::this_thread::sleep_for(std::chrono::seconds(1));
+      if (self->stop_polling) break;
+      if (elapsed >= interval * 60) {
+        elapsed = 0;
+        if (!url_copy.empty()) {
+          perform_poll(url_copy.c_str());
+        }
       }
     }
   });
@@ -686,7 +986,7 @@ static void start_polling_service(NotificationMasterPlugin* self, const gchar* p
 // Function to stop polling service
 static void stop_polling_service(NotificationMasterPlugin* self) {
   if (!self->is_polling_active) return;
-  
+
   self->stop_polling = true;
   if (self->polling_thread && self->polling_thread->joinable()) {
     self->polling_thread->join();
@@ -694,6 +994,16 @@ static void stop_polling_service(NotificationMasterPlugin* self) {
     self->polling_thread = nullptr;
   }
   self->is_polling_active = FALSE;
+
+  // Clear the persisted active service if it was polling/foreground.
+  GKeyFile* kf = load_prefs();
+  gchar* stored = g_key_file_get_string(kf, "service", "active", nullptr);
+  if (g_strcmp0(stored, "polling") == 0 || g_strcmp0(stored, "foreground") == 0) {
+    g_key_file_set_string(kf, "service", "active", "none");
+    save_prefs(kf);
+  }
+  g_free(stored);
+  g_key_file_free(kf);
 }
 
 static void notification_master_plugin_dispose(GObject* object) {
@@ -710,10 +1020,12 @@ static void notification_master_plugin_class_init(NotificationMasterPluginClass*
 }
 
 static void notification_master_plugin_init(NotificationMasterPlugin* self) {
-  self->is_polling_active = FALSE;
+  self->is_polling_active    = FALSE;
   self->is_foreground_active = FALSE;
-  self->polling_thread = nullptr;
-  self->stop_polling = false;
+  self->polling_thread       = nullptr;
+  self->stop_polling         = false;
+  self->daemon_pid           = 0;
+  self->daemon_active        = FALSE;
 }
 
 static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,

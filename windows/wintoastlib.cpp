@@ -39,7 +39,7 @@
 #ifdef NDEBUG
 static bool DebugOutputEnabled = false;
 #else
-static bool DebugOutputEnabled = true;
+static bool DebugOutputEnabled = false;  // keep silent even in Debug builds
 #endif
 
 #define DEBUG_MSG(str)                                                                                                                     \

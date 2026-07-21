@@ -388,6 +388,33 @@ class NotificationMasterWeb extends NotificationMasterPlatform {
     web.window.localStorage.setItem(key, topics.join(','));
   }
 
+  // ── Windows-only background daemon — not supported on Web ──────────────
+
+  @override
+  Future<bool> startBackgroundPollingService({
+    required String pollingUrl,
+    int? intervalMinutes,
+  }) async {
+    throw UnsupportedError(
+      'startBackgroundPollingService is only available on Windows. '
+      'Background polling is not supported in the browser.',
+    );
+  }
+
+  @override
+  Future<bool> stopBackgroundPollingService() async {
+    throw UnsupportedError(
+      'stopBackgroundPollingService is only available on Windows.',
+    );
+  }
+
+  @override
+  Future<bool> isBackgroundPollingRunning() async {
+    throw UnsupportedError(
+      'isBackgroundPollingRunning is only available on Windows.',
+    );
+  }
+
   /// Generates a random UUID-like token without external dependencies.
   String _generateUUID() {
     final ts = DateTime.now().microsecondsSinceEpoch;
@@ -423,15 +450,12 @@ class NotificationMasterWeb extends NotificationMasterPlatform {
         }
         return true;
       }
-      _scheduledTimers[id] = Timer(
-        Duration(milliseconds: delay),
-        () {
-          if (web.Notification.permission == 'granted') {
-            web.Notification(title, web.NotificationOptions(body: message));
-          }
-          _scheduledTimers.remove(id);
-        },
-      );
+      _scheduledTimers[id] = Timer(Duration(milliseconds: delay), () {
+        if (web.Notification.permission == 'granted') {
+          web.Notification(title, web.NotificationOptions(body: message));
+        }
+        _scheduledTimers.remove(id);
+      });
       return true;
     } catch (_) {
       return false;

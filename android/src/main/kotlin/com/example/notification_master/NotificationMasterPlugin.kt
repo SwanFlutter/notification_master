@@ -284,6 +284,40 @@ class NotificationMasterPlugin: FlutterPlugin, MethodCallHandler, ActivityAware,
       "getSubscribedTopics" -> {
         getSubscribedTopics(result)
       }
+      "canScheduleExactAlarms" -> {
+        canScheduleExactAlarms(result)
+      }
+      "openExactAlarmSettings" -> {
+        openExactAlarmSettings(result)
+      }
+      "openAppNotificationSettings" -> {
+        openAppNotificationSettings(result)
+      }
+      "startBackgroundPollingService" -> {
+        // The background daemon is supported on Windows, Linux, and macOS only.
+        // On Android use startForegroundService() or startNotificationPolling().
+        result.error(
+          "PLATFORM_NOT_SUPPORTED",
+          "startBackgroundPollingService is only available on Windows, Linux, and macOS. " +
+          "Use startForegroundService() or startNotificationPolling() on Android.",
+          null
+        )
+      }
+      "stopBackgroundPollingService" -> {
+        result.error(
+          "PLATFORM_NOT_SUPPORTED",
+          "stopBackgroundPollingService is only available on Windows, Linux, and macOS. " +
+          "Use stopForegroundService() or stopNotificationPolling() on Android.",
+          null
+        )
+      }
+      "isBackgroundPollingRunning" -> {
+        result.error(
+          "PLATFORM_NOT_SUPPORTED",
+          "isBackgroundPollingRunning is only available on Windows, Linux, and macOS.",
+          null
+        )
+      }
       else -> {
         result.notImplemented()
       }
@@ -540,7 +574,12 @@ class NotificationMasterPlugin: FlutterPlugin, MethodCallHandler, ActivityAware,
   }
 
   /**
-   * Start polling for notifications from a remote server
+   * Start WorkManager polling for remote HTTP notifications.
+   *
+   * This is a **separate** remote-delivery path from local notifications
+   * ([showNotification], [scheduleNotification]). It is never started
+   * automatically by local alarms — only when the host app calls this method
+   * and no other remote service should remain active (they are mutually exclusive).
    */
   private fun startNotificationPolling(
     pollingUrl: String?,
@@ -553,10 +592,9 @@ class NotificationMasterPlugin: FlutterPlugin, MethodCallHandler, ActivityAware,
     }
 
     try {
-      // Disable any other active notification service
+      // Mutually exclusive with foreground / firebase remote delivery
       setActiveNotificationService(NOTIFICATION_SERVICE_POLLING)
 
-      // Save polling settings to shared preferences
       context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().apply {
         putBoolean(PREF_POLLING_ENABLED, true)
         putString(PREF_POLLING_URL, pollingUrl)
@@ -564,7 +602,6 @@ class NotificationMasterPlugin: FlutterPlugin, MethodCallHandler, ActivityAware,
         apply()
       }
 
-      // Schedule the polling worker
       NotificationPollingWorker.schedulePolling(
         context,
         pollingUrl,
@@ -602,7 +639,11 @@ class NotificationMasterPlugin: FlutterPlugin, MethodCallHandler, ActivityAware,
   }
 
   /**
-   * Start the foreground service for continuous notification polling
+   * Start the foreground service for continuous HTTP polling.
+   *
+   * Separate from local notifications/alarms. Only one of
+   * polling | foreground | firebase may be active at a time.
+   * Local [scheduleNotification] never starts this service.
    */
   private fun startForegroundService(
     pollingUrl: String?,
@@ -616,10 +657,8 @@ class NotificationMasterPlugin: FlutterPlugin, MethodCallHandler, ActivityAware,
     }
 
     try {
-      // Disable any other active notification service
       setActiveNotificationService(NOTIFICATION_SERVICE_FOREGROUND)
 
-      // Save polling settings to shared preferences
       context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().apply {
         putBoolean(PREF_POLLING_ENABLED, true)
         putString(PREF_POLLING_URL, pollingUrl)
@@ -627,7 +666,6 @@ class NotificationMasterPlugin: FlutterPlugin, MethodCallHandler, ActivityAware,
         apply()
       }
 
-      // Create intent to start the foreground service
       val serviceIntent = Intent(context, NotificationForegroundService::class.java).apply {
         action = NotificationForegroundService.ACTION_START_SERVICE
         putExtra(NotificationForegroundService.EXTRA_POLLING_URL, pollingUrl)
@@ -637,7 +675,6 @@ class NotificationMasterPlugin: FlutterPlugin, MethodCallHandler, ActivityAware,
         }
       }
 
-      // Start the foreground service
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
         context.startForegroundService(serviceIntent)
       } else {
@@ -801,9 +838,10 @@ class NotificationMasterPlugin: FlutterPlugin, MethodCallHandler, ActivityAware,
   }
 
   /**
-   * Schedule a notification to be delivered by the OS AlarmManager at a fixed
-   * time, even when the app is closed. The alarm is persisted so it can be
-   * re-armed after a device reboot (see [BootCompletedReceiver]).
+   * Schedule a **local** notification via AlarmManager (Windows Alarm Time style).
+   *
+   * This path is independent of polling / foreground / Firebase services.
+   * It never starts or stops those services.
    */
   private fun scheduleNotification(
     id: Int,
@@ -818,13 +856,16 @@ class NotificationMasterPlugin: FlutterPlugin, MethodCallHandler, ActivityAware,
     result: Result
   ) {
     try {
+      // Ensure default + alarm channels exist
+      NotificationHelper(context)
+
       val effectiveChannelId = channelId ?: if (alarmSound) {
-        NotificationHelper.HIGH_PRIORITY_CHANNEL_ID
+        NotificationHelper.ALARM_CHANNEL_ID
       } else {
         NotificationHelper.DEFAULT_CHANNEL_ID
       }
       val effectivePriority = if (alarmSound) {
-        androidx.core.app.NotificationCompat.PRIORITY_HIGH
+        NotificationCompat.PRIORITY_MAX
       } else {
         priority
       }
@@ -844,6 +885,7 @@ class NotificationMasterPlugin: FlutterPlugin, MethodCallHandler, ActivityAware,
           ScheduledNotificationReceiver.EXTRA_EXTRA_DATA,
           mapToJson(extraData)
         )
+        putExtra(ScheduledNotificationReceiver.EXTRA_ALARM_SOUND, alarmSound)
       }
 
       val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -861,13 +903,11 @@ class NotificationMasterPlugin: FlutterPlugin, MethodCallHandler, ActivityAware,
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
         !alarmManager.canScheduleExactAlarms()
       ) {
-        // Exact alarms permission not granted — return a specific error code so
-        // the Dart side can prompt the user to grant it in Settings.
         Log.w(TAG, "SCHEDULE_EXACT_ALARM not granted — cannot schedule exact alarm id=$id")
         result.error(
           "EXACT_ALARM_PERMISSION_DENIED",
-          "Exact alarm permission not granted. Direct the user to Settings → Apps → " +
-            "${context.packageName} → Special app access → Alarms & reminders.",
+          "Exact alarm permission not granted. Call openExactAlarmSettings() or direct the user to " +
+            "Settings → Apps → ${context.packageName} → Special app access → Alarms & reminders.",
           null
         )
         return
@@ -887,14 +927,81 @@ class NotificationMasterPlugin: FlutterPlugin, MethodCallHandler, ActivityAware,
           priority = effectivePriority,
           targetScreen = targetScreen,
           extraDataJson = mapToJson(extraData),
-          triggerAtMillis = triggerAt
+          triggerAtMillis = triggerAt,
+          alarmSound = alarmSound
         )
       )
 
+      // Local schedule only — do NOT touch remote delivery services
       result.success(true)
     } catch (e: Exception) {
       Log.e(TAG, "Error scheduling notification", e)
       result.error("SCHEDULE_ERROR", e.message, null)
+    }
+  }
+
+  /** Whether the app can schedule exact alarms (Android 12+). Always true below API 31. */
+  private fun canScheduleExactAlarms(result: Result) {
+    try {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        val alarmManager =
+          context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+        result.success(alarmManager.canScheduleExactAlarms())
+      } else {
+        result.success(true)
+      }
+    } catch (e: Exception) {
+      result.error("ALARM_CHECK_ERROR", e.message, null)
+    }
+  }
+
+  /**
+   * Opens system Settings so the user can grant "Alarms & reminders"
+   * (SCHEDULE_EXACT_ALARM). Manual user action only — never auto-granted.
+   */
+  private fun openExactAlarmSettings(result: Result) {
+    try {
+      val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+          data = android.net.Uri.parse("package:${context.packageName}")
+          addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+      } else {
+        Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+          data = android.net.Uri.parse("package:${context.packageName}")
+          addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+      }
+      context.startActivity(intent)
+      result.success(true)
+    } catch (e: Exception) {
+      Log.e(TAG, "Error opening exact alarm settings", e)
+      result.error("SETTINGS_ERROR", e.message, null)
+    }
+  }
+
+  /**
+   * Opens app notification settings so the user can enable notifications /
+   * full-screen intents / channels. Manual user action only.
+   */
+  private fun openAppNotificationSettings(result: Result) {
+    try {
+      val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+          putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
+          addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+      } else {
+        Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+          data = android.net.Uri.parse("package:${context.packageName}")
+          addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+      }
+      context.startActivity(intent)
+      result.success(true)
+    } catch (e: Exception) {
+      Log.e(TAG, "Error opening notification settings", e)
+      result.error("SETTINGS_ERROR", e.message, null)
     }
   }
 
@@ -997,40 +1104,57 @@ class NotificationMasterPlugin: FlutterPlugin, MethodCallHandler, ActivityAware,
   }
 
   /**
-   * Set the active notification service and disable other services
+   * Switch the **remote-delivery** service (polling | foreground | firebase | none).
+   *
+   * Local notifications and AlarmManager schedules are **not** managed here and
+   * keep working regardless of which remote service is active.
+   *
+   * At most one remote service is active: starting one stops the previous.
    */
   private fun setActiveNotificationService(serviceType: Int) {
     val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     val currentService = prefs.getInt(PREF_ACTIVE_NOTIFICATION_SERVICE, NOTIFICATION_SERVICE_NONE)
 
-    // If the same service is already active, do nothing
     if (currentService == serviceType) {
       return
     }
 
-    // Disable the current active service
     when (currentService) {
       NOTIFICATION_SERVICE_POLLING -> {
         NotificationPollingWorker.cancelPolling(context)
-        Log.d(TAG, "Disabled polling service due to service change")
+        Log.d(TAG, "Stopped WorkManager polling (service switch)")
       }
       NOTIFICATION_SERVICE_FOREGROUND -> {
         val serviceIntent = Intent(context, NotificationForegroundService::class.java).apply {
           action = NotificationForegroundService.ACTION_STOP_SERVICE
         }
-        context.startService(serviceIntent)
-        Log.d(TAG, "Disabled foreground service due to service change")
+        try {
+          context.startService(serviceIntent)
+        } catch (e: Exception) {
+          Log.w(TAG, "Could not stop foreground service: ${e.message}")
+        }
+        Log.d(TAG, "Stopped foreground service (service switch)")
       }
-      // Firebase doesn't need to be disabled as it's managed externally
+      // Firebase is external — host app owns its lifecycle
     }
 
-    // Save the new active service
+    // Clear polling-enabled when leaving polling/foreground
+    val enablePolling = serviceType == NOTIFICATION_SERVICE_POLLING ||
+      serviceType == NOTIFICATION_SERVICE_FOREGROUND
+
     prefs.edit().apply {
       putInt(PREF_ACTIVE_NOTIFICATION_SERVICE, serviceType)
+      if (!enablePolling && serviceType != NOTIFICATION_SERVICE_NONE) {
+        // firebase: remote push, not our HTTP poller
+        putBoolean(PREF_POLLING_ENABLED, false)
+      }
+      if (serviceType == NOTIFICATION_SERVICE_NONE) {
+        putBoolean(PREF_POLLING_ENABLED, false)
+      }
       apply()
     }
 
-    Log.d(TAG, "Active notification service changed to: $serviceType")
+    Log.d(TAG, "Active remote notification service → $serviceType")
   }
 
   private fun getTargetIntent(targetScreen: String?, extraData: Map<String, Any>?): Intent? {

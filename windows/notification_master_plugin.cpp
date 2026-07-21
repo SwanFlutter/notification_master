@@ -597,65 +597,55 @@ void NotificationMasterPlugin::HandleMethodCall(
       result->Error("INVALID_ARGUMENT", "Invalid arguments");
       return;
     }
-    
+
     std::string url = GetStringValue(flutter::EncodableValue(*arguments), "pollingUrl", "");
     int interval = GetIntValue(flutter::EncodableValue(*arguments), "intervalMinutes", 15);
-    
+
     if (url.empty()) {
       result->Error("INVALID_ARGUMENT", "pollingUrl is required");
       return;
     }
-    
-    // Stop existing polling if any
+
+    // On Windows, an in-process thread dies when the app closes. To keep
+    // receiving notifications AFTER the app is closed, delegate to the
+    // standalone background poller daemon (its own process).
     StopPolling();
-    
-    // Start new polling
-    {
-      std::lock_guard<std::mutex> lock(polling_mutex_);
-      polling_url_ = StringToWString(url);
-      polling_interval_minutes_ = interval > 0 ? interval : 15;
-      polling_active_ = true;
-    }
-    
-    polling_thread_ = std::thread(&NotificationMasterPlugin::PollingThread, this);
-    result->Success(flutter::EncodableValue(true));
+    bool launched = StartBackgroundPollingService(url, interval);
+    result->Success(flutter::EncodableValue(launched));
   } else if (method_name == "stopNotificationPolling") {
+    // Stop both the in-process thread (if any) and the background daemon.
     StopPolling();
+    StopBackgroundPollingService();
     result->Success(flutter::EncodableValue(true));
   } else if (method_name == "startForegroundService") {
-    // On Windows, foreground service is same as polling
+    // On Windows, foreground service == background poller daemon so that
+    // notifications keep arriving even after the app is closed.
     const auto* arguments = std::get_if<flutter::EncodableMap>(method_call.arguments());
     if (!arguments) {
       result->Error("INVALID_ARGUMENT", "Invalid arguments");
       return;
     }
-    
+
     std::string url = GetStringValue(flutter::EncodableValue(*arguments), "pollingUrl", "");
     int interval = GetIntValue(flutter::EncodableValue(*arguments), "intervalMinutes", 15);
-    
+
     if (url.empty()) {
       result->Error("INVALID_ARGUMENT", "pollingUrl is required");
       return;
     }
-    
+
     StopPolling();
-    
-    {
-      std::lock_guard<std::mutex> lock(polling_mutex_);
-      polling_url_ = StringToWString(url);
-      polling_interval_minutes_ = interval > 0 ? interval : 15;
-      polling_active_ = true;
-    }
-    
-    polling_thread_ = std::thread(&NotificationMasterPlugin::PollingThread, this);
-    result->Success(flutter::EncodableValue(true));
+    bool launched = StartBackgroundPollingService(url, interval);
+    result->Success(flutter::EncodableValue(launched));
   } else if (method_name == "stopForegroundService") {
     StopPolling();
+    StopBackgroundPollingService();
     result->Success(flutter::EncodableValue(true));
   } else if (method_name == "setFirebaseAsActiveService") {
     result->Success(flutter::EncodableValue(true));
   } else if (method_name == "getActiveNotificationService") {
-    std::string service = polling_active_ ? "polling" : "none";
+    // Reflect the background daemon state so the UI stays in sync on Windows.
+    std::string service = IsBackgroundPollingRunning() ? "polling" : (polling_active_ ? "polling" : "none");
     result->Success(flutter::EncodableValue(service));
   } else if (method_name == "showStyledNotification") {
     ShowStyledNotification(method_call, std::move(result));
@@ -821,45 +811,69 @@ void NotificationMasterPlugin::StopBackgroundPollingService() {
 }
 
 void NotificationMasterPlugin::PollingThread() {
+    NMLog(L"[NM] PollingThread: started");
+    // Poll immediately on first run, then wait for the interval.
+    bool firstRun = true;
+    int pollCount = 0;
     while (true) {
         {
             std::lock_guard<std::mutex> lock(polling_mutex_);
             if (!polling_active_) {
+                NMLog(L"[NM] PollingThread: stopped (polling_active=false)");
                 break;
             }
         }
-        
+
+        if (!firstRun) {
+            // Wait for the configured interval (checking every second for stop).
+            int interval;
+            {
+                std::lock_guard<std::mutex> lock(polling_mutex_);
+                interval = polling_interval_minutes_;
+            }
+            NMLog(L"[NM] PollingThread: sleeping " + std::to_wstring(interval) + L" min");
+            for (int i = 0; i < interval * 60; ++i) {
+                {
+                    std::lock_guard<std::mutex> lock(polling_mutex_);
+                    if (!polling_active_) break;
+                }
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+            }
+            // Re-check after sleep.
+            {
+                std::lock_guard<std::mutex> lock(polling_mutex_);
+                if (!polling_active_) {
+                    NMLog(L"[NM] PollingThread: stopped after sleep");
+                    break;
+                }
+            }
+        }
+        firstRun = false;
+
         try {
             std::wstring url;
             {
                 std::lock_guard<std::mutex> lock(polling_mutex_);
                 url = polling_url_;
             }
-            
+            NMLog(L"[NM] PollingThread: polling " + url);
             std::wstring response = HttpGetRequest(url);
-            if (!response.empty()) {
-                // Convert wstring to string for JSON parsing
+            if (response.empty()) {
+                NMLog(L"[NM] PollingThread: empty response (network error or server down)");
+            } else {
+                ++pollCount;
+                NMLog(L"[NM] PollingThread: poll #" + std::to_wstring(pollCount) +
+                      L" got response len=" + std::to_wstring(response.size()));
                 int size_needed = WideCharToMultiByte(CP_UTF8, 0, &response[0], (int)response.size(), NULL, 0, NULL, NULL);
                 std::string jsonResponse(size_needed, 0);
                 WideCharToMultiByte(CP_UTF8, 0, &response[0], (int)response.size(), &jsonResponse[0], size_needed, NULL, NULL);
-                
                 ParseAndShowNotifications(jsonResponse);
             }
         } catch (...) {
-            // Ignore errors and continue polling
-        }
-        
-        // Sleep for the interval
-        int interval;
-        {
-            std::lock_guard<std::mutex> lock(polling_mutex_);
-            interval = polling_interval_minutes_;
-        }
-        
-        for (int i = 0; i < interval * 60 && polling_active_; ++i) {
-            std::this_thread::sleep_for(std::chrono::seconds(1));
+            NMLog(L"[NM] PollingThread: exception during poll");
         }
     }
+    NMLog(L"[NM] PollingThread: exiting");
 }
 
 std::wstring NotificationMasterPlugin::HttpGetRequest(const std::wstring& url) {
@@ -961,7 +975,9 @@ void NotificationMasterPlugin::ParseAndShowNotifications(const std::string& json
     // Supports two formats:
     // 1. {"notifications": [{"title": "...", "message": "...", ...}]}
     // 2. {"success": true, "data": {"title": "...", "message": "...", ...}} (PHP server format)
-    
+
+    int shownCount = 0;
+
     // Try format 1: notifications array
     size_t notificationsPos = jsonResponse.find("\"notifications\"");
     if (notificationsPos != std::string::npos) {
@@ -984,10 +1000,13 @@ void NotificationMasterPlugin::ParseAndShowNotifications(const std::string& json
                 
                 if (!notificationData.empty()) {
                     ShowNotificationFromJson(notificationData);
+                    ++shownCount;
                 }
                 
                 pos = objEnd + 1;
             }
+            NMLog(L"[NM] ParseAndShowNotifications: format=notifications, shown=" +
+                  std::to_wstring(shownCount));
             return;
         }
     }
@@ -1033,9 +1052,12 @@ void NotificationMasterPlugin::ParseAndShowNotifications(const std::string& json
                 
                 if (!notificationData.empty()) {
                     ShowNotificationFromJson(notificationData);
+                    ++shownCount;
                 }
             }
         }
+        NMLog(L"[NM] ParseAndShowNotifications: format=data, shown=" +
+              std::to_wstring(shownCount));
     }
 }
 
@@ -1098,69 +1120,74 @@ std::map<std::string, std::string> NotificationMasterPlugin::ParseNotificationOb
 }
 
 void NotificationMasterPlugin::ShowNotificationFromJson(const std::map<std::string, std::string>& notificationData) {
+    NMLog(L"[NM] ShowNotificationFromJson: entry");
+
+    // WinToast must be initialized — the polling thread runs separate from the
+    // Flutter UI thread so we always call InitializeWinToast() here.
     if (!InitializeWinToast()) {
+        NMLog(L"[NM] ShowNotificationFromJson: WinToast init FAILED — toast dropped");
         return;
     }
     
-    std::string title = notificationData.count("title") ? notificationData.at("title") : "";
+    std::string title   = notificationData.count("title")   ? notificationData.at("title")   : "";
     std::string message = notificationData.count("message") ? notificationData.at("message") : "";
-    
+    std::string bigText = notificationData.count("bigText") ? notificationData.at("bigText") : "";
+
+    NMLog(L"[NM] ShowNotificationFromJson: title='" + StringToWString(title) +
+          L"' message='" + StringToWString(message) + L"' bigText='" +
+          StringToWString(bigText) + L"'");
+
     if (title.empty() && message.empty()) {
+        NMLog(L"[NM] ShowNotificationFromJson: both title and message empty — skipping");
         return;
     }
-    
+
+    // Ensure neither field is empty (WinToast may refuse an empty first line).
+    if (title.empty())   title   = message;
+    if (message.empty()) message = title;
+
+    // Pick display body: prefer bigText if present.
+    const std::string& displayBody = (!bigText.empty()) ? bigText : message;
+
+    // Build template — always use Text02 (title + body) for reliability.
     WinToastTemplate templ(WinToastTemplate::Text02);
-    
-    if (!title.empty()) {
-        templ.setTextField(StringToWString(title), WinToastTemplate::FirstLine);
-    }
-    
-    std::string displayMessage = message;
-    if (notificationData.count("bigText") && !notificationData.at("bigText").empty()) {
-        displayMessage = notificationData.at("bigText");
-        templ = WinToastTemplate(WinToastTemplate::Text03);
-        templ.setTextField(StringToWString(title), WinToastTemplate::FirstLine);
-        templ.setTextField(StringToWString(displayMessage), WinToastTemplate::SecondLine);
-    } else if (!message.empty()) {
-        templ.setTextField(StringToWString(message), WinToastTemplate::SecondLine);
-    }
-    
-    // Add image if available
+    templ.setTextField(StringToWString(title),       WinToastTemplate::FirstLine);
+    templ.setTextField(StringToWString(displayBody), WinToastTemplate::SecondLine);
+
+    // Add image if available.
     if (notificationData.count("imageUrl") && !notificationData.at("imageUrl").empty()) {
         std::string imageUrl = notificationData.at("imageUrl");
-        std::wstring imagePath = StringToWString(imageUrl);
-        
-        // Check if it's an HTTP/HTTPS URL - need to download it
+        std::wstring imagePath;
         if (imageUrl.find("http://") == 0 || imageUrl.find("https://") == 0) {
-            imagePath = DownloadImageToTempFile(imagePath);
-            if (imagePath.empty()) {
-                // If download fails, skip image but continue with notification
-                // Don't return, just don't add image
-            } else {
-                // Download succeeded, use ImageAndText02 template with image
-                templ = WinToastTemplate(WinToastTemplate::ImageAndText02);
-                templ.setTextField(StringToWString(title), WinToastTemplate::FirstLine);
-                templ.setTextField(StringToWString(displayMessage), WinToastTemplate::SecondLine);
-                templ.setImagePath(imagePath);
-            }
+            imagePath = DownloadImageToTempFile(StringToWString(imageUrl));
         } else {
-            // Local file path - use ImageAndText02 template with image
+            imagePath = StringToWString(imageUrl);
+        }
+        if (!imagePath.empty()) {
             templ = WinToastTemplate(WinToastTemplate::ImageAndText02);
-            templ.setTextField(StringToWString(title), WinToastTemplate::FirstLine);
-            templ.setTextField(StringToWString(displayMessage), WinToastTemplate::SecondLine);
+            templ.setTextField(StringToWString(title),       WinToastTemplate::FirstLine);
+            templ.setTextField(StringToWString(displayBody), WinToastTemplate::SecondLine);
             templ.setImagePath(imagePath);
         }
     }
-    
+
     auto handler = new WinToastHandler(
         notification_id_counter_++,
-        [](int id) { /* Activated */ },
-        []() { /* Dismissed */ },
-        []() { /* Failed */ }
+        [](int /*id*/) {},
+        []() {},
+        []() {}
     );
-    
+
     WinToast::WinToastError error;
-    WinToast::instance()->showToast(templ, handler, &error);
+    INT64 toastId = WinToast::instance()->showToast(templ, handler, &error);
+    if (toastId < 0) {
+        NMLog(L"[NM] ShowNotificationFromJson: showToast FAILED error=" +
+              std::to_wstring(static_cast<int>(error)));
+        delete handler;
+    } else {
+        NMLog(L"[NM] ShowNotificationFromJson: showToast SUCCESS toastId=" +
+              std::to_wstring(toastId));
+    }
 }
 
 std::wstring NotificationMasterPlugin::DownloadImageToTempFile(const std::wstring& imageUrl) {

@@ -37,6 +37,12 @@
 #include "wintoastlib.h"
 #include "nm_registry_config.h"
 
+// Recent-notification deduplication window (milliseconds).
+// A toast whose composite key (title+message) was already shown within this
+// window will be skipped to avoid flooding the user when the server keeps
+// returning the same undelivered row.
+static constexpr long long kDedupeWindowMs = 60 * 60 * 1000LL; // 1 hour
+
 #pragma comment(lib, "winhttp.lib")
 #pragma comment(lib, "windowsapp.lib")
 #pragma comment(lib, "runtimeobject.lib")
@@ -180,6 +186,7 @@ std::map<std::string, std::string> ParseNotificationObject(
 }
 
 void ParseAndShow(const std::string& json) {
+  int count = 0;
   // Format 1: {"notifications":[ {...}, {...} ]}
   size_t pos = json.find("\"notifications\"");
   if (pos != std::string::npos) {
@@ -192,9 +199,14 @@ void ParseAndShow(const std::string& json) {
         size_t e = json.find('}', o);
         if (e == std::string::npos) break;
         auto data = ParseNotificationObject(json.substr(o, e - o + 1));
-        if (!data.empty()) ShowFromJson(data);
+        if (!data.empty()) {
+          ShowFromJson(data);
+          ++count;
+        }
         cur = e + 1;
       }
+      LOG(L"ParseAndShow: format=notifications, found=" +
+          std::to_wstring(count) + L" notification(s)");
       return;
     }
   }
@@ -217,7 +229,12 @@ void ParseAndShow(const std::string& json) {
         }
       }
       auto data = ParseNotificationObject(json.substr(o, e - o + 1));
-      if (!data.empty()) ShowFromJson(data);
+      if (!data.empty()) {
+        ShowFromJson(data);
+        LOG(L"ParseAndShow: format=data, found=1 notification");
+      } else {
+        LOG(L"ParseAndShow: format=data, no notification parsed");
+      }
     }
   }
 }
@@ -232,12 +249,47 @@ class Handler : public IWinToastHandler {
   void toastFailed() const override {}
 };
 
+// --- Deduplication cache -------------------------------------------------
+// Maps (title+'\0'+message) -> last-shown epoch-ms.
+// Prevents the daemon from re-toasting the same notification every poll cycle
+// when the server keeps returning an undelivered row.
+struct DedupeCache {
+  std::mutex mtx;
+  std::map<std::string, long long> seen;
+
+  bool ShouldShow(const std::string& key, long long nowMs) {
+    std::lock_guard<std::mutex> lk(mtx);
+    auto it = seen.find(key);
+    if (it != seen.end() && (nowMs - it->second) < kDedupeWindowMs) {
+      return false;  // already shown recently
+    }
+    seen[key] = nowMs;
+    return true;
+  }
+};
+
+static DedupeCache g_dedupe;
+
 void ShowFromJson(const std::map<std::string, std::string>& data) {
   std::string title = data.count("title") ? data.at("title") : "";
   std::string message = data.count("message") ? data.at("message") : "";
   if (title.empty() && message.empty()) return;
   if (title.empty()) title = message;
   if (message.empty()) message = title;
+
+  // --- Deduplication check ---
+  std::string dedupeKey = title + '\0' + message;
+  long long nowMs = ToUnixMillis();
+  if (!g_dedupe.ShouldShow(dedupeKey, nowMs)) {
+    LOG(L"ShowFromJson: SKIPPED (already shown recently): title='" +
+        ToWString(title) + L"'");
+    return;
+  }
+
+  if (!WinToast::instance()->isInitialized()) {
+    LOG(L"ShowFromJson: WinToast not initialized — skipping toast");
+    return;
+  }
 
   WinToastTemplate templ(WinToastTemplate::Text02);
   templ.setTextField(ToWString(title), WinToastTemplate::FirstLine);
@@ -260,8 +312,12 @@ void ShowFromJson(const std::map<std::string, std::string>& data) {
 
   WinToast::WinToastError err;
   INT64 id = WinToast::instance()->showToast(templ, new Handler(), &err);
-  LOG(L"ShowFromJson: title='" + ToWString(title) + L"' result=" +
-      std::to_wstring(id) + L" err=" + std::to_wstring((int)err));
+  LOG(L"ShowFromJson: title='" + ToWString(title) + L"' message='" +
+      ToWString(message) + L"' result=" + std::to_wstring(id) +
+      L" err=" + std::to_wstring((int)err) +
+      (err != WinToast::WinToastError::NoError
+           ? (L" (" + WinToast::strerror(err) + L")")
+           : L""));
 }
 
 // --- HTTP GET (WinHTTP) --------------------------------------------------
@@ -359,6 +415,27 @@ long long ToUnixMillis() {
 }
 
 void PollingLoop() {
+  // CoInitialize this thread for WinToast/WinRT calls. Even in MTA mode
+  // (COINIT_MULTITHREADED in main), each worker thread that calls WinRT APIs
+  // must also initialize COM.
+  HRESULT comHr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+  bool comInited = SUCCEEDED(comHr) || comHr == RPC_E_CHANGED_MODE;
+
+  // WinToast::instance() is thread_local — initialize it on THIS thread,
+  // otherwise the main-thread init is invisible here.
+  WinToast::instance()->setAppName(nm_config::kProductName);
+  std::wstring aumi = WinToast::configureAUMI(
+      nm_config::kCompanyName, nm_config::kProductName,
+      nm_config::kSubProduct, nm_config::kVersionInfo);
+  WinToast::instance()->setAppUserModelId(aumi);
+  WinToast::instance()->setShortcutPolicy(WinToast::SHORTCUT_POLICY_IGNORE);
+  WinToast::WinToastError wtErr;
+  bool wtOk = WinToast::instance()->initialize(&wtErr);
+  LOG(wtOk ? L"PollingLoop: WinToast thread-instance initialized OK"
+           : (L"PollingLoop: WinToast init FAILED err=" +
+              std::to_wstring((int)wtErr) + L" (" +
+              WinToast::strerror(wtErr) + L")"));
+
   while (g_running.load()) {
     std::wstring url = ReadRegString(nm_config::kBgPollUrl);
     int interval = 15;
@@ -383,16 +460,26 @@ void PollingLoop() {
     }
   }
   LOG(L"PollingLoop: exited");
+  if (comInited) CoUninitialize();
 }
 
 }  // namespace
 
 int wmain(int argc, wchar_t* argv[]) {
-  // Initialize COM (apartment threaded) for WinToast / WinRT.
-  HRESULT hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
-  if (FAILED(hr)) {
+  // WinToast::createShortcut() internally calls CoInitializeEx with
+  // COINIT_MULTITHREADED. If we already initialized COM with
+  // COINIT_APARTMENTTHREADED (STA) this conflicts and shortcut creation
+  // fails with RPC_E_CHANGED_MODE, making initialize() return false.
+  //
+  // Fix: skip shortcut creation entirely (SHORTCUT_POLICY_IGNORE) and use
+  // COINIT_MULTITHREADED so that WinRT calls inside showToast() succeed.
+  // The toast is still displayed — the shortcut is only required the first
+  // time you pin the app to the Start Menu.
+  HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+  if (FAILED(hr) && hr != RPC_E_CHANGED_MODE) {
     Logger::instance().log(L"CoInitializeEx FAILED hr=" +
-                            std::to_wstring(hr));
+                            std::to_wstring((unsigned long)hr));
+    // Continue anyway — some toasts may still work.
   }
 
   // Configure WinToast with the SAME AUMI the plugin uses so toasts show up
@@ -402,12 +489,22 @@ int wmain(int argc, wchar_t* argv[]) {
       nm_config::kCompanyName, nm_config::kProductName, nm_config::kSubProduct,
       nm_config::kVersionInfo);
   WinToast::instance()->setAppUserModelId(aumi);
-  WinToast::WinToastError err;
-  if (!WinToast::instance()->initialize(&err)) {
-    // Retry without requiring a shortcut (e.g. during dev / flutter run).
-    WinToast::instance()->setShortcutPolicy(WinToast::SHORTCUT_POLICY_IGNORE);
-    WinToast::instance()->initialize(&err);
+
+  // Always skip shortcut creation: the main app (flutter) already created
+  // the shortcut. Trying to recreate it from a console daemon process causes
+  // a COM threading conflict and makes initialize() fail entirely.
+  WinToast::instance()->setShortcutPolicy(WinToast::SHORTCUT_POLICY_IGNORE);
+
+  WinToast::WinToastError initErr;
+  bool initOk = WinToast::instance()->initialize(&initErr);
+  if (!initOk) {
+    Logger::instance().log(
+        L"WinToast initialize FAILED: err=" + std::to_wstring((int)initErr) +
+        L" (" + WinToast::strerror(initErr) + L") — toasts will not appear");
+  } else {
+    Logger::instance().log(L"WinToast initialized OK");
   }
+
   LOG(L"Daemon started. AUMI=" + aumi);
 
   // Mark enabled so the plugin sees us running.

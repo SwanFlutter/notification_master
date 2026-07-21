@@ -266,4 +266,21 @@ abstract class NotificationMasterPlatform extends PlatformInterface {
       'isBackgroundPollingRunning() has not been implemented.',
     );
   }
+
+  /// Android 12+: whether the app may schedule exact alarms.
+  /// Other platforms return `true`.
+  Future<bool> canScheduleExactAlarms() {
+    return Future.value(true);
+  }
+
+  /// Opens system Settings for "Alarms & reminders" (Android).
+  /// User must grant manually. No-op / `false` on other platforms.
+  Future<bool> openExactAlarmSettings() {
+    return Future.value(false);
+  }
+
+  /// Opens app notification settings (Android). User must grant manually.
+  Future<bool> openAppNotificationSettings() {
+    return Future.value(false);
+  }
 }

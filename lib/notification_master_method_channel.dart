@@ -366,6 +366,30 @@ class MethodChannelNotificationMaster extends NotificationMasterPlatform {
   }
 
   @override
+  Future<bool> canScheduleExactAlarms() async {
+    final result = await methodChannel.invokeMethod<bool>(
+      'canScheduleExactAlarms',
+    );
+    return result ?? true;
+  }
+
+  @override
+  Future<bool> openExactAlarmSettings() async {
+    final result = await methodChannel.invokeMethod<bool>(
+      'openExactAlarmSettings',
+    );
+    return result ?? false;
+  }
+
+  @override
+  Future<bool> openAppNotificationSettings() async {
+    final result = await methodChannel.invokeMethod<bool>(
+      'openAppNotificationSettings',
+    );
+    return result ?? false;
+  }
+
+  @override
   Future<bool> startBackgroundPollingService({
     required String pollingUrl,
     int? intervalMinutes,
