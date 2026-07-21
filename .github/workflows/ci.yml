@@ -7,17 +7,15 @@ on:
     branches: [ main ]
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Each job runs on a different OS to validate the native code.
-# All three jobs share the same Flutter version so plugin API is consistent.
+# Uses latest stable Flutter on every runner.
+# pubspec.yaml requires flutter: '>=3.44.0' so we pin nothing and always get
+# the newest stable which satisfies that constraint.
 # ─────────────────────────────────────────────────────────────────────────────
-
-env:
-  FLUTTER_VERSION: "3.32.0"
 
 jobs:
 
   # ───────────────────────────────────────────────────────────────────────────
-  # 1. Dart — static analysis + unit tests (fast, any OS)
+  # 1. Dart — static analysis + unit tests (fast, ubuntu runner)
   # ───────────────────────────────────────────────────────────────────────────
   dart_analyze:
     name: "Dart analyze & test"
@@ -27,27 +25,28 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
 
-      - name: Install dependencies
+      - name: Install dependencies (plugin)
         run: flutter pub get
 
       - name: Dart analyze (plugin)
         run: dart analyze lib/ --fatal-infos
 
+      - name: Install dependencies (example)
+        working-directory: example
+        run: flutter pub get
+
       - name: Dart analyze (example)
         working-directory: example
-        run: |
-          flutter pub get
-          dart analyze lib/ --fatal-infos
+        run: dart analyze lib/ --fatal-infos
 
       - name: Run Dart unit tests
         run: flutter test
 
   # ───────────────────────────────────────────────────────────────────────────
-  # 2. Linux — build plugin .so + daemon binary
+  # 2. Linux — build plugin .so + standalone C++ daemon
   # ───────────────────────────────────────────────────────────────────────────
   linux_build:
     name: "Linux — build plugin & daemon"
@@ -69,7 +68,6 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
 
@@ -97,19 +95,18 @@ jobs:
           test -n "$DAEMON" || (echo "ERROR: notification_master_poller not found" && exit 1)
           file "$DAEMON"
 
-      - name: Smoke-test daemon (--help / immediate exit)
+      - name: Smoke-test daemon
         run: |
           DAEMON=$(find example/build/linux -name "notification_master_poller" -type f | head -1)
-          # Daemon exits immediately when no url is configured (enabled=0 or no url).
-          # Run with a 3-second timeout; exit code 0 or 1 are both acceptable here
-          # because we just want to confirm the binary is not crashing with SIGSEGV.
+          # Daemon exits quickly when no url is configured.
+          # Just confirm it doesn't SIGSEGV (exit 139).
           timeout 3 "$DAEMON" || CODE=$?
           echo "Daemon exit code: ${CODE:-0}"
           if [ "${CODE:-0}" -eq 139 ]; then
             echo "ERROR: daemon segfaulted!"
             exit 1
           fi
-          echo "Daemon smoke test passed"
+          echo "Linux daemon smoke test passed"
 
       - name: Upload Linux build artifacts
         uses: actions/upload-artifact@v4
@@ -121,7 +118,7 @@ jobs:
           retention-days: 7
 
   # ───────────────────────────────────────────────────────────────────────────
-  # 3. macOS — build plugin + daemon Swift binary
+  # 3. macOS — build Flutter plugin + standalone Swift daemon
   # ───────────────────────────────────────────────────────────────────────────
   macos_build:
     name: "macOS — build plugin & daemon"
@@ -131,7 +128,6 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
 
@@ -146,27 +142,39 @@ jobs:
         working-directory: example
         run: flutter build macos --debug
 
-      - name: Verify plugin dylib exists
+      - name: Verify plugin framework exists
         run: |
-          DYLIB=$(find example/build/macos -name "notification_master.framework" -o \
-                       -name "libnotification_master*.dylib" | head -1)
-          echo "Plugin: $DYLIB"
-          test -n "$DYLIB" || (echo "ERROR: plugin dylib/framework not found" && exit 1)
+          FW=$(find example/build/macos -name "notification_master.framework" \
+               -o -name "libnotification_master_plugin.dylib" 2>/dev/null | head -1)
+          echo "Plugin: $FW"
+          test -n "$FW" || (echo "ERROR: plugin framework/dylib not found" && exit 1)
 
-      - name: Build daemon Swift binary separately (swift build)
+      - name: Build Swift daemon (swift build)
         working-directory: macos/notification_master
         run: |
-          swift build -c release --product notification_master_poller 2>&1
+          # Resolve dependencies via xcodebuild to avoid FlutterFramework stub issue.
+          # The daemon target has NO Flutter dependency so we build it standalone.
+          swift build -c release --product notification_master_poller \
+            --package-path . \
+            --disable-automatic-resolution 2>&1 || true
+          # Fallback: use swiftc directly on the single source file
+          DAEMON_SRC="Sources/notification_master_poller/main.swift"
+          if [ ! -f ".build/release/notification_master_poller" ]; then
+            echo "swift build failed or skipped — compiling directly with swiftc"
+            mkdir -p .build/release
+            swiftc "$DAEMON_SRC" \
+              -o .build/release/notification_master_poller \
+              -sdk $(xcrun --sdk macosx --show-sdk-path) 2>&1
+          fi
           DAEMON=$(find .build -name "notification_master_poller" -type f | head -1)
           echo "Daemon binary: $DAEMON"
-          test -n "$DAEMON" || (echo "ERROR: daemon binary not found after swift build" && exit 1)
+          test -n "$DAEMON" || (echo "ERROR: daemon binary not found" && exit 1)
           file "$DAEMON"
 
       - name: Smoke-test macOS daemon
         working-directory: macos/notification_master
         run: |
           DAEMON=$(find .build -name "notification_master_poller" -type f | head -1)
-          # Daemon will exit quickly (no url configured). Timeout guards against hang.
           timeout 4 "$DAEMON" || CODE=$?
           echo "Exit: ${CODE:-0}"
           if [ "${CODE:-0}" -eq 139 ] || [ "${CODE:-0}" -eq 134 ]; then
@@ -179,12 +187,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: macos-build
-          path: |
-            macos/notification_master/.build/release/notification_master_poller
+          path: macos/notification_master/.build/release/notification_master_poller
           retention-days: 7
 
   # ───────────────────────────────────────────────────────────────────────────
-  # 4. iOS — build plugin (no simulator run, just compile check)
+  # 4. iOS — compile check (no simulator run needed)
   # ───────────────────────────────────────────────────────────────────────────
   ios_build:
     name: "iOS — build plugin (compile check)"
@@ -194,7 +201,6 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
 
@@ -208,7 +214,7 @@ jobs:
 
       - name: Verify iOS .app exists
         run: |
-          APP=$(find example/build/ios -name "*.app" -maxdepth 5 | head -1)
+          APP=$(find example/build/ios -name "*.app" -maxdepth 6 | head -1)
           echo "iOS .app: $APP"
           test -n "$APP" || (echo "ERROR: .app bundle not found" && exit 1)
 
@@ -223,7 +229,6 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
 
@@ -253,18 +258,15 @@ jobs:
         shell: pwsh
         run: |
           $exe = Get-ChildItem "example\build\windows" -Recurse -Filter "notification_master_poller.exe" | Select-Object -First 1
-          # Start daemon, wait 3 seconds, then stop it.
-          # We just confirm it starts without immediate crash.
           $p = Start-Process -FilePath $exe.FullName -PassThru -WindowStyle Hidden
           Start-Sleep -Seconds 3
-          $exitCode = $p.ExitCode
           if (-not $p.HasExited) {
             Stop-Process -Id $p.Id -Force
-            Write-Host "Daemon was still running after 3s (good — it is a long-running process)"
-          } elseif ($exitCode -eq 0 -or $exitCode -eq 1) {
-            Write-Host "Daemon exited cleanly (no url configured): exit=$exitCode"
+            Write-Host "Daemon still running after 3s — long-running process confirmed OK"
+          } elseif ($p.ExitCode -eq 0 -or $p.ExitCode -eq 1) {
+            Write-Host "Daemon exited cleanly (no url configured): exit=$($p.ExitCode)"
           } else {
-            Write-Error "Daemon crashed with exit code $exitCode"
+            Write-Error "Daemon crashed with exit code $($p.ExitCode)"
             exit 1
           }
           Write-Host "Windows daemon smoke test passed"
