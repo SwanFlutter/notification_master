@@ -165,7 +165,6 @@ class MockNotificationMasterPlatform
 
   @override
   Future<bool> isBackgroundPollingRunning() {
-    // TODO: implement isBackgroundPollingRunning
     throw UnimplementedError();
   }
 
@@ -174,13 +173,26 @@ class MockNotificationMasterPlatform
     required String pollingUrl,
     int? intervalMinutes,
   }) {
-    // TODO: implement startBackgroundPollingService
     throw UnimplementedError();
   }
 
   @override
   Future<bool> stopBackgroundPollingService() {
-    // TODO: implement stopBackgroundPollingService
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<bool> canScheduleExactAlarms() {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<bool> openAppNotificationSettings() {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<bool> openExactAlarmSettings() {
     throw UnimplementedError();
   }
 }

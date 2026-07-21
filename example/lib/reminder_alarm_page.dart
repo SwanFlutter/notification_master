@@ -32,7 +32,9 @@ class _ReminderAlarmPageState extends State<ReminderAlarmPage> {
   final NotificationMaster _nm = NotificationMaster();
 
   bool _hasPermission = false;
+  bool _canExactAlarm = true;
   String _platform = 'Unknown';
+  String _activeRemoteService = 'none';
 
   final TextEditingController _titleController = TextEditingController(
     text: 'Reminder',
@@ -48,7 +50,7 @@ class _ReminderAlarmPageState extends State<ReminderAlarmPage> {
   void initState() {
     super.initState();
     _platform = UnifiedNotificationService.getPlatformName();
-    _checkPermission();
+    _bootstrap();
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() {});
     });
@@ -62,10 +64,58 @@ class _ReminderAlarmPageState extends State<ReminderAlarmPage> {
     super.dispose();
   }
 
+  Future<void> _bootstrap() async {
+    await Future.wait([
+      _checkPermission(),
+      _checkExactAlarm(),
+      _loadPendingIds(),
+      _loadActiveRemoteService(),
+    ]);
+  }
+
   Future<void> _checkPermission() async {
     final granted = await _nm.checkNotificationPermission();
     if (!mounted) return;
     setState(() => _hasPermission = granted);
+  }
+
+  Future<void> _checkExactAlarm() async {
+    try {
+      final ok = await _nm.canScheduleExactAlarms();
+      if (!mounted) return;
+      setState(() => _canExactAlarm = ok);
+    } catch (_) {
+      // Non-Android platforms use the default true
+    }
+  }
+
+  Future<void> _loadActiveRemoteService() async {
+    try {
+      final s = await _nm.getActiveNotificationService();
+      if (!mounted) return;
+      setState(() => _activeRemoteService = s);
+    } catch (_) {}
+  }
+
+  /// Pending ids from the OS store (no titles after restart — show placeholders).
+  Future<void> _loadPendingIds() async {
+    try {
+      final ids = await _nm.getPendingScheduledNotifications();
+      if (!mounted || ids.isEmpty) return;
+      setState(() {
+        for (final id in ids) {
+          if (_reminders.any((r) => r.id == id)) continue;
+          _reminders.add(
+            _Reminder(
+              id: id,
+              title: 'Scheduled #$id',
+              message: 'Restored from OS schedule',
+              fireAt: DateTime.now().add(const Duration(hours: 1)),
+            ),
+          );
+        }
+      });
+    } catch (_) {}
   }
 
   Future<void> _requestPermission() async {
@@ -187,9 +237,8 @@ class _ReminderAlarmPageState extends State<ReminderAlarmPage> {
         title: const Text('Alarm Permission Required'),
         content: const Text(
           'To fire alarms at the exact scheduled time, please grant the '
-          '"Alarms & reminders" permission:\n\n'
-          'Settings → Apps → [this app] → Special app access'
-          ' → Alarms & reminders',
+          '"Alarms & reminders" permission.\n\n'
+          'This cannot be enabled automatically — open Settings and turn it on.',
         ),
         actions: [
           TextButton(
@@ -197,14 +246,17 @@ class _ReminderAlarmPageState extends State<ReminderAlarmPage> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(ctx);
-              _snack(
-                'Go to Settings → Apps → Special app access'
-                ' → Alarms & reminders',
-              );
+              final opened = await _nm.openExactAlarmSettings();
+              if (!opened) {
+                _snack(
+                  'Open Settings → Apps → Special app access'
+                  ' → Alarms & reminders',
+                );
+              }
             },
-            child: const Text('OK'),
+            child: const Text('Open Settings'),
           ),
         ],
       ),
@@ -226,9 +278,17 @@ class _ReminderAlarmPageState extends State<ReminderAlarmPage> {
   }
 
   Future<bool> _ensurePermission() async {
-    if (_hasPermission) return true;
-    await _requestPermission();
-    return _hasPermission;
+    if (!_hasPermission) {
+      await _requestPermission();
+      if (!_hasPermission) return false;
+    }
+    // Exact alarms are independent of POST_NOTIFICATIONS (Android 12+)
+    await _checkExactAlarm();
+    if (!_canExactAlarm) {
+      _showExactAlarmPermissionDialog();
+      return false;
+    }
+    return true;
   }
 
   // ── Formatting helpers ───────────────────────────────────────────────────────
@@ -266,6 +326,10 @@ class _ReminderAlarmPageState extends State<ReminderAlarmPage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _buildPermissionCard(),
+            const SizedBox(height: 12),
+            _buildExactAlarmCard(),
+            const SizedBox(height: 12),
+            _buildPathSeparationCard(),
             const SizedBox(height: 16),
             _buildContentCard(),
             const SizedBox(height: 16),
@@ -318,7 +382,92 @@ class _ReminderAlarmPageState extends State<ReminderAlarmPage> {
               ElevatedButton(
                 onPressed: _requestPermission,
                 child: const Text('Grant'),
+              )
+            else
+              TextButton(
+                onPressed: () => _nm.openAppNotificationSettings(),
+                child: const Text('Settings'),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildExactAlarmCard() {
+    final ok = _canExactAlarm;
+    return Card(
+      color: ok ? Colors.green[50] : Colors.red[50],
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Icon(
+              ok ? Icons.alarm_on : Icons.alarm_off,
+              color: ok ? Colors.green[700] : Colors.red[700],
+              size: 32,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Exact Alarm Time (Android 12+)',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    ok
+                        ? 'Exact alarms allowed — reminders fire on time'
+                        : 'Denied — open Settings → Alarms & reminders (manual)',
+                  ),
+                ],
+              ),
+            ),
+            if (!ok)
+              ElevatedButton(
+                onPressed: () async {
+                  await _nm.openExactAlarmSettings();
+                  await Future<void>.delayed(const Duration(seconds: 1));
+                  await _checkExactAlarm();
+                },
+                child: const Text('Open'),
+              )
+            else
+              IconButton(
+                tooltip: 'Refresh',
+                onPressed: _checkExactAlarm,
+                icon: const Icon(Icons.refresh),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPathSeparationCard() {
+    return Card(
+      color: Colors.indigo[50],
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Path A · Local Alarm (this page)',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Uses AlarmManager only. Does not start polling or foreground service.',
+              style: TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Remote service (Path B): $_activeRemoteService'
+              '${_activeRemoteService == 'none' ? ' — local alarms work alone' : ' — independent of this page'}',
+              style: TextStyle(fontSize: 13, color: Colors.indigo[900]),
+            ),
           ],
         ),
       ),
@@ -481,8 +630,16 @@ class _ReminderAlarmPageState extends State<ReminderAlarmPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'ℹ️ How reminders fire',
+              'ℹ️ How reminders fire (Windows Alarm Time style)',
               style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 8),
+            Text(
+              '• Android: AlarmManager + alarm channel (TYPE_ALARM sound)\n'
+              '• Survives app close; re-armed after reboot\n'
+              '• Separate from HTTP polling / foreground service\n'
+              '• User must grant Alarms & reminders manually if prompted',
+              style: TextStyle(fontSize: 13),
             ),
             SizedBox(height: 8),
             Text(

@@ -14,16 +14,12 @@ A new Flutter project.
   s.author           = { 'Your Company' => 'email@example.com' }
 
   s.source           = { :path => '.' }
-  s.source_files = 'notification_master/Sources/notification_master/**/*'
-
-  # If your plugin requires a privacy manifest, for example if it collects user
-  # data, update the PrivacyInfo.xcprivacy file to describe your plugin's
-  # privacy impact, and then uncomment this line. For more information,
-  # see https://developer.apple.com/documentation/bundleresources/privacy_manifest_files
-  # s.resource_bundles = {'notification_master_privacy' => ['notification_master/Sources/notification_master/PrivacyInfo.xcprivacy']}
+  s.source_files = 'notification_master/Sources/notification_master/**/*.swift'
 
   s.dependency 'FlutterMacOS'
 
+  # macOS 10.14+ required for UNUserNotificationCenter; 10.15 gives us
+  # Combine and async/await readiness without breaking older Macs.
   s.platform = :osx, '10.15'
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }
   s.swift_version = '5.0'

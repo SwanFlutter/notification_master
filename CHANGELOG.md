@@ -2,7 +2,7 @@
 
 ---
 
-## 0.0.8
+## 1.0.0
 
 * **All platforms**: Added native scheduled (background) notifications — no external plugin required.
   - `scheduleNotification({id, title, message, scheduledTime, channelId, importance, alarmSound, targetScreen, extraData})` — asks the OS to deliver the notification at a fixed time, even when the app is fully closed.
