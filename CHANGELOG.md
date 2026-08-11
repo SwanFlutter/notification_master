@@ -2,6 +2,12 @@
 
 ---
 
+## 1.0.1
+
+* Fix Kotlin Gradle Plugin (KGP)
+
+---
+
 ## 1.0.0
 
 * **All platforms**: Added native scheduled (background) notifications — no external plugin required.

@@ -1,6 +1,6 @@
 name: notification_master
 description: "A multi-platform Flutter notification plugin with custom channels, background polling, and foreground service support."
-version: 1.0.0
+version: 1.0.1
 homepage: "https://github.com/SwanFlutter/notification_master.git"
 
 environment:

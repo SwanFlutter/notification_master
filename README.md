@@ -34,7 +34,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  notification_master: ^1.0.0
+  notification_master: ^1.0.1
 ```
 
 Run:
