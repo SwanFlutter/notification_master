@@ -5,6 +5,12 @@ plugins {
     id("com.android.library")
 }
 
+val agpMajor = com.android.Version.ANDROID_GRADLE_PLUGIN_VERSION.substringBefore('.').toInt()
+
+if (agpMajor < 9) {
+    apply(plugin = "org.jetbrains.kotlin.android")
+}
+
 android {
     namespace = "com.example.notification_master"
 
@@ -43,7 +49,7 @@ android {
     }
 }
 
-kotlin {
+project.extensions.configure(org.jetbrains.kotlin.gradle.dsl.KotlinAndroidProjectExtension::class.java) {
     compilerOptions {
         jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
     }
