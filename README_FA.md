@@ -2,22 +2,54 @@
 
 یک پلاگین جامع Flutter برای مدیریت نوتیفیکیشن در تمام پلتفرم‌ها.
 
+[![pub package](https://img.shields.io/pub/v/notification_master.svg)](https://pub.dev/packages/notification_master)
+[![Pub Points](https://img.shields.io/pub/points/notification_master)](https://pub.dev/packages/permission_master/score)
+[![Popularity](https://img.shields.io/pub/popularity/notification_master)](https://pub.dev/packages/permission_master)
+[![Pub Likes](https://img.shields.io/pub/likes/notification_master)](https://pub.dev/packages/permission_master)
+[![GitHub issues](https://img.shields.io/github/issues/SwanFlutter/notification_master)](https://github.com/SwanFlutter/permission_master/issues)
+[![GitHub forks](https://img.shields.io/github/forks/SwanFlutter/notification_master)](https://github.com/SwanFlutter/permission_master/network/members)
+
+---
+
 ## پشتیبانی پلتفرم‌ها
 
-| Platform | Support | ویژگی‌ها |
-|----------|---------|----------|
-| Android  | ✅ | نوتیفیکیشن محلی، کانال سفارشی، HTTP polling، Foreground Service |
-| iOS      | ✅ | نوتیفیکیشن محلی، صدای سفارشی، Badge، HTTP polling — **[راهنما](IOS_SETUP_FA.md)** |
-| macOS    | ✅ | نوتیفیکیشن native، HTTP polling، Background daemon |
-| Windows  | ✅ | Toast notification، ۷ نوع، سناریوهای Alarm/Call، HTTP polling، Background daemon — **[راهنما](WINDOWS_NOTIFICATIONS_GUIDE.md)** |
-| Web      | ✅ | Browser Notification API، مدیریت Permission |
-| Linux    | ✅ | Desktop notification (libnotify)، HTTP polling، Background daemon |
+| پلتفرم | پشتیبانی | ویژگی‌ها |
+|--------|---------|----------|
+| Android | ✅ | نوتیفیکیشن محلی، کانال سفارشی، HTTP polling، Foreground Service |
+| iOS | ✅ | نوتیفیکیشن محلی، صدای سفارشی، Badge، HTTP polling — **[راهنما](IOS_SETUP_FA.md)** |
+| macOS | ✅ | نوتیفیکیشن native، HTTP polling، Background daemon |
+| Windows | ✅ | Toast notification، ۷ نوع، سناریوهای Alarm/Call، HTTP polling، Background daemon — **[راهنما](WINDOWS_NOTIFICATIONS_GUIDE.md)** |
+| Web | ✅ | Browser Notification API، مدیریت Permission |
+| Linux | ✅ | Desktop notification (libnotify)، HTTP polling، Background daemon |
+
+---
+
+## تصاویر
+
+- Android
+
+![Notification_master_github_showcase_e783d3a788](https://github.com/user-attachments/assets/fe87ddb1-4144-4ab7-b2b2-45c1096fbab2)
+
+- iOS
+
+![Notification_master_flutter_plugin_dc39493e02](https://github.com/user-attachments/assets/1fe98992-3c3e-41e4-84f9-6781f7883ed5)
+![Notification_master_flutter_plugin_23ec37c185](https://github.com/user-attachments/assets/fffc9b58-08d9-40ae-802c-529ab89d0189)
+
+- Windows
+
+![Screenshot 2026-02-22 042326](https://github.com/user-attachments/assets/d6ad8ce9-63a0-4a19-b727-f792458fbe94)
+
+- Web
+
+![Screenshot 2026-02-22 105300](https://github.com/user-attachments/assets/ae9ca66b-a36b-4662-b941-00b611098e35)
+
+- macOS
+
+![photo_2026-02-25_04-47-00](https://github.com/user-attachments/assets/ab7da4c0-3e30-4b79-b23d-89cd45ed0c4c)
 
 ---
 
 ## نصب
-
-در فایل `pubspec.yaml`:
 
 ```yaml
 dependencies:
@@ -30,60 +62,54 @@ flutter pub get
 
 ---
 
+## فهرست مطالب
+
+1. [راه‌اندازی پلتفرم‌ها](#راه‌اندازی-پلتفرمها)
+   - [Android](#-android)
+   - [iOS](#-ios)
+   - [macOS](#-macos)
+   - [Windows](#-windows)
+   - [Linux](#-linux)
+   - [Web](#-web)
+2. [استفاده پایه](#استفاده-پایه)
+3. [متدهای نوتیفیکیشن](#متدهای-نوتیفیکیشن)
+4. [کانال سفارشی](#createcustomchannel)
+5. [Firebase و Push Notification](#firebase-و-push-notification)
+6. [مدیریت سرویس](#مدیریت-سرویس)
+7. [مثال‌های کامل](#مثالهای-کامل)
+
+---
+
 ## راه‌اندازی پلتفرم‌ها
 
 ### 🤖 Android
 
-> ⚠️ **مهم:** پلاگین هیچ permission ای را به‌صورت خودکار در manifest خود اعلام **نمی‌کند**.
-> تمام permissionهای مورد نیاز را باید خودتان در فایل
-> `android/app/src/main/AndroidManifest.xml` اضافه کنید.
-> این کار باعث می‌شود مارکت‌هایی مثل Google Play، بازار و مایکت
-> permissionهای حساسی که اپ شما واقعاً استفاده نمی‌کند را flag نزنند.
-
-فقط permissionهایی که اپ شما نیاز دارد را داخل تگ `<manifest>` اضافه کنید:
+> ⚠️ پلاگین هیچ permission ای را در manifest خود اعلام **نمی‌کند**. فقط permissionهایی که اپ شما واقعاً نیاز دارد را به `android/app/src/main/AndroidManifest.xml` اضافه کنید. این کار از flag شدن توسط Google Play، بازار و مایکت جلوگیری می‌کند.
 
 ```xml
-<!-- ── برای همه انواع نوتیفیکیشن لازم است ──────────────────────────── -->
-
-<!-- دسترسی به اینترنت برای HTTP polling و نوتیفیکیشن تصویری -->
+<!-- برای همه انواع نوتیفیکیشن لازم است -->
 <uses-permission android:name="android.permission.INTERNET" />
+<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />  <!-- Android 13+ -->
 
-<!-- Android 13+ (API 33+): باید در runtime توسط کاربر تأیید شود -->
-<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-
-<!-- ── فقط اگر از startForegroundService() استفاده می‌کنید ──────────── -->
-
+<!-- فقط اگر از startForegroundService() استفاده می‌کنید -->
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
-<!-- ── فقط اگر از startNotificationPolling() یا FGS استفاده می‌کنید ── -->
-
-<!-- راه‌اندازی مجدد بعد از ریستارت دستگاه -->
+<!-- فقط اگر از startNotificationPolling() استفاده می‌کنید -->
 <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
-<!-- ── فقط اگر از scheduleNotification() استفاده می‌کنید ─────────────── -->
-
-<!-- زمان‌بندی دقیق — Android 12+ ممکن است نیاز به تأیید کاربر در تنظیمات داشته باشد -->
+<!-- فقط اگر از scheduleNotification() استفاده می‌کنید -->
 <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-<!-- فقط برای اپ‌های ساعت/تقویم در Android 13+ به‌صورت خودکار اعطا می‌شود -->
 <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
 
-<!-- ── اختیاری ───────────────────────────────────────────────────────── -->
-
-<!-- بررسی وضعیت شبکه قبل از polling -->
+<!-- اختیاری -->
 <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-
-<!-- ویبره هنگام نوتیفیکیشن -->
 <uses-permission android:name="android.permission.VIBRATE" />
-
-<!-- نگه داشتن CPU بیدار حین polling -->
 <uses-permission android:name="android.permission.WAKE_LOCK" />
-
-<!-- نوتیفیکیشن‌های تمام‌صفحه / تماس ورودی (API 34+ ممکن است نیاز به تنظیم دستی داشته باشد) -->
 <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
 ```
 
-همچنین در تگ `<activity>` اضافه کنید:
+همچنین تگ `<activity>` را به‌روزرسانی کنید:
 
 ```xml
 <activity
@@ -94,57 +120,23 @@ flutter pub get
     ...>
 ```
 
-#### راه‌اندازی HTTP Polling در اندروید
-
-در اندروید، HTTP polling از طریق `startForegroundService()` (توصیه‌شده) یا `startNotificationPolling()` (مبتنی بر WorkManager) انجام می‌شود.
-
-**`startForegroundService()` — سرویس foreground با نوتیفیکیشن دائمی:**
-
-```dart
-await nm.startForegroundService(
-  pollingUrl: 'https://your-server.com/api/notifications',
-  intervalMinutes: 1,
-  channelId: 'polling_channel',
-);
-```
-
-**`startNotificationPolling()` — job پس‌زمینه WorkManager (ممکن است توسط OS محدود شود):**
-
-```dart
-await nm.startNotificationPolling(
-  pollingUrl: 'https://your-server.com/api/notifications',
-  intervalMinutes: 15, // حداقل WorkManager
-);
-```
-
-> ℹ️ متد `startBackgroundPollingService()` (daemon process) در اندروید **موجود نیست**. از `startForegroundService()` یا `startNotificationPolling()` استفاده کنید.
-
 ---
 
 ### 🍎 iOS
 
 #### ۱. Podfile
 
-مطمئن شوید `ios/Podfile` با این خط شروع می‌شود:
-
 ```ruby
 platform :ios, '14.0'
 ```
 
-بعد از تغییر اجرا کنید:
-
 ```bash
-cd ios
-pod install
-cd ..
+cd ios && pod install && cd ..
 ```
 
 #### ۲. Info.plist
 
-در فایل `ios/Runner/Info.plist` داخل تگ `<dict>` اضافه کنید:
-
 ```xml
-<!-- حالت‌های اجرا در پس‌زمینه -->
 <key>UIBackgroundModes</key>
 <array>
     <string>fetch</string>
@@ -152,22 +144,17 @@ cd ..
     <string>processing</string>
 </array>
 
-<!-- شناسه ثابت task پس‌زمینه — همین مقدار را بنویسید، تغییر ندهید -->
+<!-- مقدار ثابت است — با $(PRODUCT_BUNDLE_IDENTIFIER) جایگزین نکنید -->
 <key>BGTaskSchedulerPermittedIdentifiers</key>
 <array>
     <string>com.example.notification_master.polling</string>
 </array>
 
-<!-- توضیح دلیل ارسال نوتیفیکیشن -->
 <key>NSUserNotificationUsageDescription</key>
 <string>این اپ برای اطلاع‌رسانی به شما نوتیفیکیشن ارسال می‌کند.</string>
 ```
 
-> ⚠️ **مهم:** مقدار `com.example.notification_master.polling` یک رشته ثابت است که در کد Swift پلاگین هاردکد شده. آن را با `$(PRODUCT_BUNDLE_IDENTIFIER)` جایگزین **نکنید** — وگرنه background task ثبت نخواهد شد.
-
 #### ۳. AppDelegate.swift
-
-محتوای `ios/Runner/AppDelegate.swift` را با این کد جایگزین کنید:
 
 ```swift
 import Flutter
@@ -177,16 +164,13 @@ import UserNotifications
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate, UNUserNotificationCenterDelegate {
+
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    // ضروری: نمایش نوتیفیکیشن هنگام باز بودن اپ
     UNUserNotificationCenter.current().delegate = self
-
-    // ضروری: ثبت task پس‌زمینه
     NotificationMasterPlugin.registerBackgroundTask()
-
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
@@ -194,7 +178,7 @@ import UserNotifications
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
   }
 
-  // نمایش نوتیفیکیشن در حالت foreground
+  // نمایش نوتیفیکیشن هنگام باز بودن اپ
   func userNotificationCenter(
     _ center: UNUserNotificationCenter,
     willPresent notification: UNNotification,
@@ -214,48 +198,8 @@ import UserNotifications
 }
 ```
 
-**چرا این موارد ضروری هستند:**
-- `import notification_master` — برای صدا زدن `NotificationMasterPlugin.registerBackgroundTask()` لازم است
-- `UNUserNotificationCenterDelegate` — برای نمایش نوتیفیکیشن هنگام باز بودن اپ ضروری است
-- `registerBackgroundTask()` — task پس‌زمینه را با iOS ثبت می‌کند
-- بدون `willPresent`، نوتیفیکیشن‌ها هنگام باز بودن اپ بی‌صدا حذف می‌شوند
-
-**⚠️ مشکل رایج - خطای Deployment Target:**
-اگر خطای CocoaPods مربوط به deployment target دریافت کردید:
-- فارسی: [IOS_DEPLOYMENT_TARGET_FIX_FA.md](IOS_DEPLOYMENT_TARGET_FIX_FA.md)
-- English: [IOS_DEPLOYMENT_TARGET_FIX.md](IOS_DEPLOYMENT_TARGET_FIX.md)
-
-**📖 راهنمای کامل راه‌اندازی iOS:**
-- فارسی: [IOS_SETUP_FA.md](IOS_SETUP_FA.md)
-- English: [IOS_SETUP.md](IOS_SETUP.md)
-
-#### راه‌اندازی HTTP Polling در iOS
-
-در iOS، HTTP polling از `BGTaskScheduler` که در `AppDelegate.swift` ثبت شده استفاده می‌کند. ستاپ در مرحله ۳ بالا این کار را انجام می‌دهد. از `startNotificationPolling()` استفاده کنید:
-
-```dart
-await nm.startNotificationPolling(
-  pollingUrl: 'https://your-server.com/api/notifications',
-  intervalMinutes: 15, // حداقل BGTaskScheduler حدود ۱۵ دقیقه است
-);
-```
-
-برای توقف:
-
-```dart
-await nm.stopNotificationPolling();
-```
-
-> ℹ️ متد `startBackgroundPollingService()` (daemon process) در iOS **موجود نیست**. از `startNotificationPolling()` استفاده کنید که `BGAppRefreshTask` ثبت‌شده در `AppDelegate` شما را wrap می‌کند.
-
-> ⚠️ iOS یک حداقل interval حدود ۱۵ دقیقه برای task‌های پس‌زمینه اعمال می‌کند. زمان‌بندی دقیق توسط OS بر اساس باتری، الگوی استفاده و شبکه تعیین می‌شود.
-
----
-
-### 🌐 Web
-
-نیازی به تنظیم اضافه نیست. پلاگین از **Browser Notification API** استفاده می‌کند.  
-⚠️ مرورگر باید از Notification API پشتیبانی کند (Chrome، Firefox، Edge).
+> ⚠️ **مشکل رایج:** اگر خطای CocoaPods مربوط به deployment target دریافت کردید، [IOS_DEPLOYMENT_TARGET_FIX_FA.md](IOS_DEPLOYMENT_TARGET_FIX_FA.md) را ببینید.
+> 📖 **راهنمای کامل iOS:** [IOS_SETUP_FA.md](IOS_SETUP_FA.md)
 
 ---
 
@@ -263,34 +207,23 @@ await nm.stopNotificationPolling();
 
 #### ۱. Entitlements
 
-در **هر دو** فایل `macos/Runner/DebugProfile.entitlements` و `macos/Runner/Release.entitlements` اضافه کنید:
+در **هر دو** فایل `DebugProfile.entitlements` و `Release.entitlements` اضافه کنید:
 
 ```xml
-<!-- دسترسی به شبکه برای HTTP polling -->
 <key>com.apple.security.network.client</key>
 <true/>
-
-<!-- نمایش نوتیفیکیشن محلی در sandbox مک -->
 <key>com.apple.security.usernotifications</key>
 <true/>
 ```
 
 #### ۲. Info.plist
 
-در فایل `macos/Runner/Info.plist` داخل تگ `<dict>` اضافه کنید:
-
 ```xml
-<!-- توضیح دلیل ارسال نوتیفیکیشن -->
 <key>NSUserNotificationUsageDescription</key>
 <string>این اپ برای اطلاع‌رسانی به شما نوتیفیکیشن ارسال می‌کند.</string>
 ```
 
-> ℹ️ **توجه:** `BGTaskSchedulerPermittedIdentifiers` در macOS **لازم نیست**.
-> پلاگین برای polling در macOS از یک `Timer` داخلی استفاده می‌کند — `BGTaskScheduler` فقط در iOS موجود است.
-
 #### ۳. AppDelegate.swift
-
-محتوای `macos/Runner/AppDelegate.swift` را با این کد جایگزین کنید:
 
 ```swift
 import Cocoa
@@ -299,8 +232,8 @@ import UserNotifications
 
 @main
 class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
+
   override func applicationDidFinishLaunching(_ notification: Notification) {
-    // ضروری: نمایش نوتیفیکیشن هنگام باز بودن اپ
     UNUserNotificationCenter.current().delegate = self
     super.applicationDidFinishLaunching(notification)
   }
@@ -309,7 +242,7 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
     return true
   }
 
-  // نمایش نوتیفیکیشن در حالت foreground
+  // نمایش نوتیفیکیشن هنگام باز بودن اپ
   func userNotificationCenter(
     _ center: UNUserNotificationCenter,
     willPresent notification: UNNotification,
@@ -329,436 +262,108 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
 }
 ```
 
-> ℹ️ نیازی به `import notification_master` یا `registerBackgroundTask()` در macOS نیست —
-> پلاگین delegate نوتیفیکیشن را داخلی مدیریت می‌کند و از polling مبتنی بر `Timer` استفاده می‌کند.
-
-#### راه‌اندازی HTTP Polling در مک‌اواس
-
-مک‌اواس از **دو** حالت polling پشتیبانی می‌کند:
-
-**حالت A — polling داخلی (اپ باید باز باشد):** از `startNotificationPolling()` استفاده کنید. یک `Timer` داخل پروسه Flutter اجرا می‌شود.
-
-```dart
-await nm.startNotificationPolling(
-  pollingUrl: 'https://your-server.com/api/notifications',
-  intervalMinutes: 1,
-);
-```
-
-**حالت B — Background daemon (بعد از بسته شدن اپ هم کار می‌کند):** از `startBackgroundPollingService()` استفاده کنید. یک باینری Swift مستقل (`notification_master_poller`) کنار `.app` bundle اجرا می‌شود.
-
-```dart
-await nm.startBackgroundPollingService(
-  pollingUrl: 'https://your-server.com/api/notifications',
-  intervalMinutes: 1,
-);
-```
-
-> ℹ️ باینری `notification_master_poller` هنگام `flutter build macos` به‌صورت خودکار build می‌شود و باید در همان دایرکتوری executable اپ قرار داشته باشد.
+> نیازی به `import notification_master` یا `registerBackgroundTask()` در macOS نیست.
 
 ---
 
-### 🪟 Windows / 🐧 Linux
+### 🪟 Windows
 
-نیازی به تنظیم اضافه نیست. پلاگین به‌صورت خودکار شناسایی می‌کند.
+نیازی به تنظیم اضافه نیست. پلاگین به‌صورت خودکار پلتفرم را شناسایی می‌کند.
 
-#### راه‌اندازی HTTP Polling در ویندوز و لینوکس
+**ویژگی‌های پشتیبانی‌شده:**
+- ۷ نوع نوتیفیکیشن (Simple، Big Text، Image، Actions، Styled، Heads-Up، Full Screen)
+- سناریوهای Alarm و IncomingCall با صدای حلقه‌ای
+- دکمه‌های Action، attribution text، پشتیبانی از تصویر
+- یکپارچگی با Windows Action Center (ویندوز ۱۰/۱۱)
 
-هر دو پلتفرم از **background daemon** استفاده می‌کنند — یک پروسه مستقل که بعد از بسته شدن اپ هم ادامه می‌دهد. نیازی به تنظیم اضافه در پروژه نیست؛ باینری daemon هنگام build به‌صورت خودکار ساخته و کپی می‌شود.
-
-```dart
-// شروع daemon
-await nm.startBackgroundPollingService(
-  pollingUrl: 'https://your-server.com/api/notifications',
-  intervalMinutes: 1,
-);
-
-// توقف daemon
-await nm.stopBackgroundPollingService();
-
-// بررسی وضعیت
-final running = await nm.isBackgroundPollingRunning();
-```
-
-راهنمای کامل daemon را در ادامه ببینید.
+📖 **راهنمای کامل ویندوز:** [WINDOWS_NOTIFICATIONS_GUIDE.md](WINDOWS_NOTIFICATIONS_GUIDE.md)
 
 ---
 
-### 🪟 ویندوز — HTTP Polling (Background Daemon)
+### 🐧 Linux
 
-پولینگ در ویندوز با Android/iOS فرق دارد. به جای یک job سیستمی مانند WorkManager، پلاگین یک **پروسه مستقل** (`notification_master_poller.exe`) راه‌اندازی می‌کند که حتی بعد از بسته شدن اپ اصلی به پولینگ سرور و نمایش toast ادامه می‌دهد.
+یک‌بار روی ماشین build نصب کنید:
 
-#### نحوه کار
+```bash
+# Ubuntu / Debian
+sudo apt-get install libnotify-dev libcurl4-openssl-dev libjson-glib-dev
 
-```
-Flutter app  ──startBackgroundPollingService()──►  notification_master_poller.exe
-                                                          │
-                                  ┌───────────────────────┘
-                                  │  URL + interval را از registry می‌خواند
-                                  │  هر N دقیقه سرور را poll می‌کند
-                                  │  toast ویندوز را از طریق WinToast نشان می‌دهد
-                                  │  لاگ → notification_master_poller.log
-                                  └──► بعد از بسته شدن/ریستارت اپ زنده می‌ماند
+# Fedora / RHEL
+sudo dnf install libnotify-devel libcurl-devel json-glib-devel
+
+# Arch
+sudo pacman -S libnotify curl json-glib
 ```
 
-فایل اجرایی daemon هنگام `flutter build windows` یا `flutter run` به‌صورت خودکار build می‌شود — نیازی به مرحله جداگانه build نیست.
+نیازی به تغییر فایل‌های پروژه نیست. باینری daemon هنگام `flutter build linux` به‌صورت خودکار کامپایل می‌شود.
 
-#### مرحله ۱ — راه‌اندازی Dart (مثل سایر پلتفرم‌ها)
+---
+
+### 🌐 Web
+
+نیازی به تنظیم اضافه نیست. پلاگین از **Browser Notification API** استفاده می‌کند.
+
+> ⚠️ به Chrome، Firefox یا Edge نیاز دارد. Safari پشتیبانی محدود دارد. Background polling در Web موجود نیست.
+
+---
+
+## استفاده پایه
 
 ```dart
 import 'package:notification_master/notification_master.dart';
 
 final nm = NotificationMaster();
 
-// ۱. بررسی / درخواست permission
+// بررسی و درخواست permission
 final granted = await nm.checkNotificationPermission();
 if (!granted) await nm.requestNotificationPermission();
 
-// ۲. راه‌اندازی background poller daemon
-//    پروسه daemon کنار .exe اپ شما اجرا می‌شود.
-final ok = await nm.startBackgroundPollingService(
-  pollingUrl: 'https://your-server.com/api/notifications',
-  intervalMinutes: 1, // حداقل توصیه‌شده: ۱
-);
-
-if (!ok) {
-  // .exe daemon پیدا نشد — مطمئن شوید با flutter build windows build کرده‌اید
-  debugPrint('راه‌اندازی background poller شکست خورد');
-}
-```
-
-#### مرحله ۲ — فرمت JSON سرور
-
-endpoint سرور شما باید JSON با این ساختار دقیق برگرداند:
-
-```json
-{
-  "notifications": [
-    {
-      "title": "پیام جدید",
-      "message": "۳ پیام خوانده‌نشده دارید",
-      "bigText": "متن گسترش‌یافته اختیاری که در toast نمایش داده می‌شود",
-      "imageUrl": "https://example.com/avatar.png",
-      "channelId": "high_priority_channel"
-    }
-  ]
-}
-```
-
-- وقتی چیز جدیدی نیست آرایه **خالی** برگردانید (`"notifications": []`) — daemon بی‌صدا skip می‌کند.
-- فیلدهای `bigText`، `imageUrl` و `channelId` اختیاری هستند.
-
-#### مرحله ۳ — توقف daemon
-
-```dart
-await nm.stopBackgroundPollingService();
-```
-
-پروسه daemon متوقف شده و رکورد registry پاک می‌شود. راه‌اندازی بعدی اپ آن را به‌صورت خودکار مجدداً شروع نمی‌کند.
-
-#### بررسی وضعیت daemon
-
-```dart
-final running = await nm.isBackgroundPollingRunning();
-print('Daemon در حال اجرا: $running');
-```
-
-#### خواندن لاگ daemon
-
-daemon یک فایل لاگ کنار `.exe` اپ می‌نویسد:
-
-```
-<build-output>\runner\Debug\notification_master_poller.log
-```
-
-می‌توانید آن را در runtime داخل debug panel اپ نمایش دهید:
-
-```dart
-import 'dart:io';
-
-Future<void> printDaemonLog() async {
-  final dir = File(Platform.resolvedExecutable).parent.path;
-  final log = File('$dir\\notification_master_poller.log');
-  if (await log.exists()) {
-    final lines = await log.readAsLines();
-    for (final l in lines.reversed.take(30)) debugPrint(l);
-  }
-}
-```
-
-یک لاگ سالم معمولی این‌گونه است:
-
-```
-[NM-POLLER] [10:00:01.234] Daemon started. AUMI=NotificationMaster...
-[NM-POLLER] [10:00:01.235] PollingLoop: WinToast thread-instance initialized OK
-[NM-POLLER] [10:00:01.312] PollOnce: requesting https://your-server.com/api/notifications
-[NM-POLLER] [10:00:01.580] PollOnce: got 228 bytes
-[NM-POLLER] [10:00:01.581] ShowFromJson: title='پیام جدید' message='...' result=1234 err=0
-```
-
-`err=0` یعنی toast با موفقیت نمایش داده شد.
-
-#### Deduplication (جلوگیری از تکرار)
-
-daemon به‌صورت خودکار از نمایش مجدد نوتیفیکیشنی که `title + message` آن در **۱ ساعت** گذشته نشان داده شده جلوگیری می‌کند. این کار از flood شدن کاربر هنگامی که سرور همان ردیف تحویل‌داده‌نشده را برمی‌گرداند جلوگیری می‌کند. لاگ نشان می‌دهد:
-
-```
-[NM-POLLER] ShowFromJson: SKIPPED (already shown recently): title='...'
-```
-
-#### مثال کامل کاربردی
-
-فایل `example/lib/simple_polling_page.dart` یک UI کامل دارد که شامل:
-- شروع / توقف background daemon
-- Force poll برای تست فوری
-- نمایش لاگ daemon داخل اپ
-- کمک‌کننده SQL برای reset کردن ردیف‌های `delivered_at` حین توسعه
-
----
-
-### 🐧 لینوکس — HTTP Polling (Background Daemon)
-
-لینوکس از همان معماری daemon ویندوز استفاده می‌کند. یک باینری مستقل C++ به نام `notification_master_poller` به عنوان یک پروسه جداگانه راه‌اندازی می‌شود و بعد از بسته شدن اپ اصلی هم به کار ادامه می‌دهد.
-
-#### نحوه کار
-
-```
-Flutter app  ──startBackgroundPollingService()──►  notification_master_poller  (ELF binary)
-                                                          │
-                                  ┌───────────────────────┘
-                                  │  URL + interval را از
-                                  │  ~/.config/notification_master/poller.conf می‌خواند
-                                  │  هر N دقیقه سرور را poll می‌کند (libcurl)
-                                  │  notification از طریق libnotify نمایش می‌دهد
-                                  │  لاگ → notification_master_poller.log
-                                  └──► بعد از بسته شدن/ریستارت اپ زنده می‌ماند
-```
-
-**پیش‌نیازها:** `libnotify`، `libcurl`، `libjson-glib` — روی Ubuntu/Fedora/Arch به صورت پیش‌فرض موجودند.
-
-#### راه‌اندازی Dart (مثل ویندوز)
-
-```dart
-final ok = await nm.startBackgroundPollingService(
-  pollingUrl: 'https://your-server.com/api/notifications',
-  intervalMinutes: 1,
+// نمایش نوتیفیکیشن
+await nm.showNotification(
+  title: 'سلام',
+  message: 'یک پیام جدید دارید',
 );
 ```
 
-#### فایل config
-
-daemon از `~/.config/notification_master/poller.conf` می‌خواند:
-
-```ini
-[poller]
-url      = https://your-server.com/api/notifications
-interval = 1
-enabled  = 1
-```
-
-پلاگین این فایل را قبل از راه‌اندازی daemon به طور خودکار می‌نویسد.
-
-#### لاگ daemon
-
-کنار فایل اجرایی daemon نوشته می‌شود:
-
-```
-[NM-POLLER] [10:00:01.123] daemon started — pid=12345
-[NM-POLLER] [10:00:01.200] polling_loop: requesting https://your-server.com/...
-[NM-POLLER] [10:00:01.380] polling_loop: got 228 bytes
-[NM-POLLER] [10:00:01.381] show_notification: title='پیام جدید' body='...'
-```
-
 ---
 
-### 🍎 مک‌اواس — HTTP Polling (Background Daemon)
-
-مک‌اواس از یک باینری مستقل Swift به نام `notification_master_poller` استفاده می‌کند که به عنوان یک پروسه جداگانه اجرا می‌شود. از `UNUserNotificationCenter` برای نوتیفیکیشن و `URLSession` برای HTTP استفاده می‌کند.
-
-#### نحوه کار
-
-```
-Flutter app  ──startBackgroundPollingService()──►  notification_master_poller  (Swift binary)
-                                                          │
-                                  ┌───────────────────────┘
-                                  │  URL + interval را از
-                                  │  UserDefaults (suite: com.notification-master.poller)
-                                  │  می‌خواند
-                                  │  هر N دقیقه poll می‌کند (URLSession)
-                                  │  notification از طریق UNUserNotificationCenter
-                                  │    (fallback به osascript اگر permission رد شود)
-                                  │  لاگ → notification_master_poller.log
-                                  └──► بعد از بسته شدن/ریستارت اپ زنده می‌ماند
-```
-
-#### راه‌اندازی Dart (مثل ویندوز/لینوکس)
-
-```dart
-final ok = await nm.startBackgroundPollingService(
-  pollingUrl: 'https://your-server.com/api/notifications',
-  intervalMinutes: 1,
-);
-```
-
-#### ذخیره‌سازی config
-
-در `UserDefaults` با suite `com.notification-master.poller` ذخیره می‌شود:
-
-| کلید | مقدار |
-|------|-------|
-| `nm_bg_poll_url` | آدرس endpoint |
-| `nm_bg_poll_interval` | interval به دقیقه |
-| `nm_bg_poll_enabled` | `"1"` = در حال اجرا، `"0"` = توقف |
-
-#### Permission نوتیفیکیشن
-
-daemon هنگام راه‌اندازی از `UNUserNotificationCenter` درخواست مجوز می‌کند. اگر رد شود، به `osascript`'s `display notification` که بدون bundle ID کار می‌کند fallback می‌کند.
-
----
-
-## استفاده پایه
-
-### ایمپورت
-
-```dart
-import 'package:notification_master/notification_master.dart';
-```
-
----
-
-## متدها و مثال‌ها
-
-### `checkNotificationPermission()`
-
-بررسی وضعیت Permission نوتیفیکیشن.
-
-```dart
-final notificationMaster = NotificationMaster();
-
-bool hasPermission = await notificationMaster.checkNotificationPermission();
-print('Permission granted: $hasPermission');
-```
-
----
-
-### `requestNotificationPermission()`
-
-درخواست Permission از کاربر (لازم برای Android 13+ و iOS و Web).
-
-```dart
-final granted = await notificationMaster.requestNotificationPermission();
-if (!granted) {
-  print('کاربر Permission رد کرد');
-}
-```
-
----
+## متدهای نوتیفیکیشن
 
 ### `showNotification()`
 
-نمایش یک نوتیفیکیشن ساده.
-
-**پارامترها:**
-- `id` (اختیاری): شناسه منحصربه‌فرد نوتیفیکیشن
-- `title` (اجباری): عنوان
-- `message` (اجباری): متن
-- `channelId`: شناسه کانال (Android)
-- `importance`: سطح اهمیت
-- `autoCancel`: بسته شدن خودکار بعد از لمس
-- `targetScreen`: مسیر صفحه برای navigation
-- `extraData`: داده اضافه
+نوتیفیکیشن پایه برای همه پلتفرم‌ها.
 
 ```dart
 // ساده‌ترین حالت
-await notificationMaster.showNotification(
+await nm.showNotification(
   title: 'خوش آمدید',
   message: 'اپلیکیشن شما آماده است',
 );
 
-// با ID سفارشی
-await notificationMaster.showNotification(
+// با همه گزینه‌ها
+await nm.showNotification(
   id: 42,
   title: 'سفارش تایید شد',
   message: 'سفارش شماره ۴۲ تایید شد',
-);
-
-// با اهمیت بالا
-await notificationMaster.showNotification(
-  title: 'هشدار!',
-  message: 'باتری رو به اتمام است',
+  channelId: 'orders',
   importance: NotificationImportance.high,
-);
-
-// با navigation به صفحه خاص
-await notificationMaster.showNotification(
-  title: 'پیام جدید',
-  message: 'یک پیام جدید دارید',
-  targetScreen: '/messages',
-  extraData: {'messageId': '123'},
-);
-
-// نوتیفیکیشن پایدار (بدون auto-cancel)
-await notificationMaster.showNotification(
-  title: 'در حال دانلود...',
-  message: 'فایل در حال دانلود است',
-  autoCancel: false,
+  autoCancel: true,
+  targetScreen: '/orders',
+  extraData: {'orderId': '42'},
 );
 ```
 
 ---
 
-### `showStyledNotification()` ⭐ جدید
+### `showStyledNotification()` ⭐
 
-نمایش نوتیفیکیشن استایل‌دار با آیکون اپلیکیشن و متن کامل (مثل نوتیفیکیشن‌های مدرن Android).
-
-**ویژگی‌ها:**
-- آیکون اپلیکیشن در سمت چپ نمایش داده می‌شود
-- متن کامل پیام نشان داده می‌شود
-- صدا و ویبره فعال است
-- زمان نمایش داده می‌شود
+آیکون اپ را در سمت چپ نمایش می‌دهد با متن کامل پیام. در Android توصیه می‌شود به جای `showNotification()` استفاده شود.
 
 ```dart
-await notificationMaster.showStyledNotification(
-  title: 'به‌روزرسانی جدید موجود است',
-  message: 'نسخه ۲.۰ با ویژگی‌ها و بهبودهای جدید در دسترس است',
-  channelId: 'updates', // اختیاری
-);
-```
-
----
-
-### `showHeadsUpNotification()` ⭐ جدید
-
-نمایش نوتیفیکیشن heads-up که از بالای صفحه با padding ظاهر می‌شود.
-
-**ویژگی‌ها:**
-- از بالای صفحه ظاهر می‌شود
-- padding اطراف آن دارد
-- استایل UI سفارشی
-- برای پیام‌های فوری عالی است
-
-```dart
-await notificationMaster.showHeadsUpNotification(
-  title: '🔔 هشدار فوری',
-  message: 'این نوتیفیکیشن از بالای صفحه ظاهر می‌شود',
-);
-```
-
----
-
-### `showFullScreenNotification()` ⭐ جدید
-
-نمایش نوتیفیکیشن تمام صفحه (بیشترین مزاحمت، مثل تماس ورودی).
-
-**ویژگی‌ها:**
-- تمام صفحه را می‌گیرد
-- برای هشدارهای بسیار مهم استفاده می‌شود
-- شبیه نوتیفیکیشن تماس ورودی
-
-```dart
-await notificationMaster.showFullScreenNotification(
-  title: '📞 تماس ورودی',
-  message: 'جان در حال تماس با شماست',
+await nm.showStyledNotification(
+  title: 'به‌روزرسانی جدید',
+  message: 'نسخه ۲.۰ با ویژگی‌های جدید در دسترس است',
+  channelId: 'updates',
 );
 ```
 
@@ -766,14 +371,13 @@ await notificationMaster.showFullScreenNotification(
 
 ### `showBigTextNotification()`
 
-نوتیفیکیشن با متن طولانی (expandable).
+نوتیفیکیشن قابل گسترش با متن طولانی.
 
 ```dart
-await notificationMaster.showBigTextNotification(
-  title: 'خبر مهم',
+await nm.showBigTextNotification(
+  title: 'خبرنامه',
   message: 'خلاصه خبر اینجاست',
-  bigText: 'این متن کامل و طولانی خبر است که بعد از باز کردن نوتیفیکیشن '
-           'نمایش داده می‌شود و می‌تواند چندین پاراگراف باشد...',
+  bigText: 'این متن کامل و طولانی است که بعد از باز کردن نوتیفیکیشن نمایش داده می‌شود...',
   importance: NotificationImportance.defaultImportance,
 );
 ```
@@ -782,14 +386,14 @@ await notificationMaster.showBigTextNotification(
 
 ### `showImageNotification()`
 
-نوتیفیکیشن با تصویر.
+نوتیفیکیشن با تصویر بارگذاری‌شده از URL.
 
 ```dart
-await notificationMaster.showImageNotification(
+await nm.showImageNotification(
   title: 'عکس جدید',
-  message: 'یک دوست عکسی برای شما فرستاد',
+  message: 'دوستت عکس فرستاد',
   imageUrl: 'https://example.com/image.jpg',
-  channelId: 'media_channel',
+  channelId: 'media',
 );
 ```
 
@@ -797,607 +401,331 @@ await notificationMaster.showImageNotification(
 
 ### `showNotificationWithActions()`
 
-نوتیفیکیشن با دکمه‌های Action.
+نوتیفیکیشن با دکمه‌های Action قابل کلیک.
 
 ```dart
-await notificationMaster.showNotificationWithActions(
+await nm.showNotificationWithActions(
   title: 'تماس ورودی',
   message: 'علی در حال تماس است',
   actions: [
     {'title': 'پاسخ', 'route': '/call/answer'},
-    {'title': 'رد کردن', 'route': '/call/reject'},
+    {'title': 'رد کردن', 'route': '/call/decline'},
   ],
 );
 ```
 
 ---
 
-### `createCustomChannel()`
+### `showHeadsUpNotification()` ⭐
 
-ساخت کانال سفارشی (Android 8.0+).
-
-**مهم:** کانال‌های سفارشی حالا به درستی از صدا، ویبره و چراغ پشتیبانی می‌کنند!
+به صورت بنر از بالای صفحه ظاهر می‌شود. برای پیام‌های فوری مناسب است.
 
 ```dart
-await notificationMaster.createCustomChannel(
+await nm.showHeadsUpNotification(
+  title: '🔔 هشدار فوری',
+  message: 'این نوتیفیکیشن از بالای صفحه ظاهر می‌شود',
+);
+```
+
+---
+
+### `showFullScreenNotification()` ⭐
+
+تمام صفحه را می‌گیرد — فقط برای تماس ورودی یا هشدارهای بحرانی استفاده کنید.
+
+```dart
+await nm.showFullScreenNotification(
+  title: '📞 تماس ورودی',
+  message: 'جان در حال تماس با شماست',
+);
+```
+
+---
+
+### سلسله مراتب نوتیفیکیشن Android
+
+از کمترین تا بیشترین مزاحمت:
+
+| نوع | محل نمایش |
+|-----|-----------|
+| `showNotification()` | فقط نوار اعلان |
+| `showStyledNotification()` | نوار اعلان با آیکون اپ |
+| `showHeadsUpNotification()` | بنر از بالای صفحه |
+| `showFullScreenNotification()` | تمام صفحه (تماس / آلارم) |
+
+---
+
+### `createCustomChannel()`
+
+ساخت کانال نوتیفیکیشن سفارشی در Android (نسخه ۸.۰ به بالا). باید قبل از ارسال نوتیفیکیشن به آن کانال فراخوانی شود.
+
+```dart
+await nm.createCustomChannel(
   channelId: 'order_updates',
   channelName: 'به‌روزرسانی سفارش',
-  channelDescription: 'نوتیفیکیشن‌های مربوط به وضعیت سفارش',
+  channelDescription: 'نوتیفیکیشن‌های مربوط به سفارش‌ها',
   importance: NotificationImportance.high,
   enableLights: true,
   lightColor: 0xFF00FF00,
   enableVibration: true,
-  enableSound: true, // ✅ صدا حالا کار می‌کنه!
+  enableSound: true,
 );
 
-// سپس از channelId در نوتیفیکیشن استایل‌دار استفاده کنید:
-await notificationMaster.showStyledNotification(
+// سپس از channelId استفاده کنید
+await nm.showStyledNotification(
   title: 'سفارش ارسال شد',
-  message: 'سفارش شما از انبار خارج شد و در راه است',
+  message: 'سفارش شما از انبار خارج شد',
   channelId: 'order_updates',
 );
 ```
 
 ---
 
-## انواع نوتیفیکیشن Android
+## سطوح اهمیت
 
-### نوتیفیکیشن معمولی در مقابل استایل‌دار
-
-**نوتیفیکیشن معمولی:**
-- نوتیفیکیشن پایه بدون آیکون اپلیکیشن
-- متن ممکن است کوتاه شود
-- استایل حداقلی
-
-**نوتیفیکیشن استایل‌دار (توصیه می‌شود):** ⭐
-- آیکون اپلیکیشن در سمت چپ نمایش داده می‌شود
-- متن کامل نشان داده می‌شود
-- زمان نمایش داده می‌شود
-- ظاهر بصری بهتر
-
-```dart
-// برای تجربه کاربری بهتر از نوتیفیکیشن استایل‌دار استفاده کنید
-await notificationMaster.showStyledNotification(
-  title: 'پیام جدید',
-  message: 'شما یک پیام جدید از جان دریافت کرده‌اید',
-);
-```
-
-### سلسله مراتب نوتیفیکیشن (بر اساس مزاحمت)
-
-1. **نوتیفیکیشن معمولی** - فقط در نوار اعلان ظاهر می‌شود
-2. **نوتیفیکیشن استایل‌دار** - در نوار اعلان با آیکون اپلیکیشن ظاهر می‌شود
-3. **Heads-Up Notification** - از بالای صفحه با padding ظاهر می‌شود
-4. **Full Screen Notification** - تمام صفحه را می‌گیرد (مثل تماس)
+| مقدار | رفتار |
+|-------|-------|
+| `NotificationImportance.high` | صدا + ویبره + بنر بالا |
+| `NotificationImportance.defaultImportance` | رفتار پیش‌فرض سیستم |
+| `NotificationImportance.low` | بدون صدا |
+| `NotificationImportance.min` | فقط نوار اعلان، بدون صدا |
 
 ---
 
-## رفع مشکلات
-
-### کانال سفارشی صدا نداره
-✅ **حل شد!** کانال‌های سفارشی حالا به درستی از صدا پشتیبانی می‌کنند. مطمئن شوید هنگام ساخت کانال `enableSound: true` را تنظیم کنید.
-
-### آیکون اپلیکیشن در نوتیفیکیشن نمایش داده نمیشه
-✅ **حل شد!** به جای `showNotification()` از `showStyledNotification()` استفاده کنید تا آیکون اپلیکیشن نمایش داده شود.
-
-### نوتیفیکیشن نمایش داده نمیشه
-- بررسی کنید که Permission داده شده باشد (Android 13+)
-- تایید کنید که کانال قبل از ارسال نوتیفیکیشن ساخته شده باشد
-- Logcat را برای پیام‌های خطا بررسی کنید (فیلتر با "NotificationHelper")
-
----
-
-### `startNotificationPolling()`
-
-شروع polling دوره‌ای از یک URL برای دریافت نوتیفیکیشن.
-
-فرمت JSON پاسخ سرور:
-
-```json
-{
-  "notifications": [
-    {
-      "id": 1,
-      "title": "عنوان",
-      "message": "متن نوتیفیکیشن",
-      "imageUrl": "https://...",
-      "bigText": "متن بلند...",
-      "importance": "high",
-      "channelId": "my_channel"
-    }
-  ]
-}
-```
-
-```dart
-await notificationMaster.startNotificationPolling(
-  pollingUrl: 'https://api.example.com/notifications',
-  intervalMinutes: 15,
-);
-```
-
----
-
-### `stopNotificationPolling()`
-
-توقف polling.
-
-```dart
-await notificationMaster.stopNotificationPolling();
-```
-
----
-
-### `startForegroundService()`
-
-شروع Foreground Service برای polling مداوم (Android).
-
-```dart
-await notificationMaster.startForegroundService(
-  pollingUrl: 'https://api.example.com/notifications',
-  intervalMinutes: 10,
-  channelId: 'service_channel',
-  channelName: 'سرویس نوتیفیکیشن',
-  channelDescription: 'سرویس پس‌زمینه برای دریافت نوتیفیکیشن',
-  importance: NotificationImportance.low,
-  enableVibration: false,
-  enableSound: false,
-);
-```
-
----
-
-### `stopForegroundService()`
-
-توقف Foreground Service.
-
-```dart
-await notificationMaster.stopForegroundService();
-```
-
----
+## Firebase و Push Notification
 
 ### `setFirebaseAsActiveService()`
 
-تنظیم Firebase Cloud Messaging به عنوان سرویس فعال.
+Firebase را به عنوان روش فعال تحویل نوتیفیکیشن علامت‌گذاری کنید.
 
 ```dart
-final success = await notificationMaster.setFirebaseAsActiveService();
-print('FCM فعال شد: $success');
-```
-
----
-
-### `getActiveNotificationService()`
-
-دریافت نام سرویس نوتیفیکیشن فعال.
-
-```dart
-final service = await notificationMaster.getActiveNotificationService();
-print('سرویس فعال: $service'); // مثلاً: "firebase" یا "none"
+await nm.setFirebaseAsActiveService();
 ```
 
 ---
 
 ### `getDeviceToken()`
 
-دریافت توکن دستگاه برای نوتیفیکیشن‌های push. توکن FCM در Android، توکن APNS در iOS، یا شناسه منحصربه‌فرد دستگاه به عنوان fallback برمی‌گرداند.
+بهترین توکن push موجود برای دستگاه فعلی را برمی‌گرداند. اگر `firebase_messaging` در پروژه باشد، توکن FCM را برمی‌گرداند. در غیر این صورت یک شناسه دستگاه برمی‌گرداند.
 
 ```dart
-final token = await notificationMaster.getDeviceToken();
-print('توکن دستگاه: $token');
+final token = await nm.getDeviceToken();
+print('Token: $token');
 ```
 
-**رفتار در هر پلتفرم:**
-- **Android**: اگر Firebase Messaging در دسترس باشد توکن FCM، در غیر این صورت Android ID
-- **iOS**: اگر APNS token در دسترس باشد آن را برمی‌گرداند، در غیر این صورت `identifierForVendor` UUID
-- **Web/Desktop**: پشتیبانی نمی‌شود (null برمی‌گرداند)
+| پلتفرم | Firebase موجود | Firebase نیست |
+|--------|---------------|--------------|
+| Android | توکن FCM (~152 کاراکتر) | Android ID (16 hex) |
+| iOS | توکن APNS (hex) | UUID از `identifierForVendor` |
+| macOS | — | hostname دستگاه |
+| Windows | — | MachineGuid از registry |
+| Linux | — | `/etc/machine-id` یا hostname |
+| Web | — | UUID پایدار در localStorage |
+
+> اگر از `firebase_messaging` استفاده می‌کنید، `FirebaseMessaging.instance.getToken()` را مستقیم صدا بزنید. `getDeviceToken()` یک wrapper راحت برای حالتی است که Firebase اختیاری باشد.
 
 ---
 
-### `subscribeToTopic(String topic)`
+### `subscribeToTopic()` / `unsubscribeFromTopic()`
 
-عضویت در یک موضوع (topic) نوتیفیکیشن. در Android/iOS با Firebase، این متد در FCM topic عضو می‌شود.
+عضویت یا لغو عضویت از یک topic نوتیفیکیشن. با یا بدون Firebase کار می‌کند.
 
 ```dart
-// عضویت در یک topic
-final success = await notificationMaster.subscribeToTopic('news');
-print('عضو شد: $success');
+await nm.subscribeToTopic('news');
+await nm.unsubscribeFromTopic('news');
 
-// ارسال نوتیفیکیشن به همه اعضای یک topic
-// (از سرور شما): https://fcm.googleapis.com/v1/projects/{project}/messages:send
-// {
-//   "message": {
-//     "topic": "news",
-//     "notification": { "title": "خبر فوری", "body": "..." }
-//   }
-// }
+final topics = await nm.getSubscribedTopics();
+print('تاپیک‌های فعال: $topics');
 ```
 
-**رفتار در هر پلتفرم:**
-- **Android**: از Firebase Messaging `subscribeToTopic()` استفاده می‌کند (اگر در دسترس باشد)
-- **iOS**: عضویت را به صورت محلی ذخیره می‌کند (با Firebase برای پیام‌رسانی topic سمت سرور استفاده کنید)
-- **Web/Desktop**: پشتیبانی نمی‌شود
+**با Firebase:** از `FirebaseMessaging.subscribeToTopic()` استفاده کرده و cache محلی هم نگه می‌دارد.
+**بدون Firebase:** در SharedPreferences / UserDefaults محلی ذخیره می‌کند — باید با سرور خودتان sync کنید.
 
 ---
 
-### `unsubscribeFromTopic(String topic)`
+## مدیریت سرویس
 
-لغو عضویت از یک topic نوتیفیکیشن. همیشه موفق می‌شود — با Firebase از FCM لغو می‌کند، بدون Firebase رکورد محلی را حذف می‌کند.
+در هر لحظه فقط یک سرویس پس‌زمینه می‌تواند فعال باشد. شروع سرویس جدید به‌صورت خودکار سرویس قبلی را متوقف می‌کند.
 
-```dart
-final success = await notificationMaster.unsubscribeFromTopic('news');
-print('لغو عضویت: $success');
-```
-
-**رفتار در هر پلتفرم:**
-- **Android با Firebase**: `FirebaseMessaging.getInstance().unsubscribeFromTopic()` را صدا می‌زند و لوکال هم حذف می‌کند
-- **Android بدون Firebase**: از `SharedPreferences` حذف می‌کند
-- **iOS**: از `UserDefaults` حذف می‌کند
-- **macOS / Windows / Linux**: از storage محلی حذف می‌کند
-
----
-
-### `getSubscribedTopics()`
-
-لیست topic‌هایی که دستگاه در حال حاضر در آن‌ها عضو است را برمی‌گرداند.
+| سرویس | متد | مصرف باتری | قابلیت اطمینان | مناسب برای |
+|-------|-----|------------|---------------|-----------|
+| Polling | `startNotificationPolling()` | کم | متوسط | بررسی دوره‌ای (هر ۱۵+ دقیقه) |
+| Foreground Service | `startForegroundService()` | زیاد | بالا | لحظه‌ای مداوم (فقط Android) |
+| Firebase | `setFirebaseAsActiveService()` | خیلی کم | خیلی بالا | push از سرور |
 
 ```dart
-final topics = await notificationMaster.getSubscribedTopics();
-print('تاپیک‌های فعال: $topics'); // مثلاً: ['news', 'offers', 'alerts']
-```
+// بررسی سرویس فعال
+final service = await nm.getActiveNotificationService();
+print('فعال: $service'); // "polling"، "foreground"، "firebase" یا "none"
 
-**رفتار در هر پلتفرم:**
-- **Android با Firebase**: لیست cache شده محلی که همتای FCM است
-- **همه پلتفرم‌ها بدون Firebase**: لیست ذخیره شده محلی
-
-#### جریان کامل server-side بدون Firebase
-
-```dart
-final notificationMaster = NotificationMaster();
-
-// ۱. دریافت شناسه دستگاه
-final token = await notificationMaster.getDeviceToken();
-
-// ۲. عضویت در topic‌ها
-await notificationMaster.subscribeToTopic('news');
-await notificationMaster.subscribeToTopic('offers');
-
-// ۳. دریافت لیست topic‌های فعال
-final topics = await notificationMaster.getSubscribedTopics();
-
-// ۴. ثبت token + topic‌ها روی سرور شما
-await myApi.registerDevice(token: token!, topics: topics);
-// سرور شما می‌تواند نوتیفیکیشن push به همه دستگاه‌های
-// عضو 'news' ارسال کند
-
-// بعداً — لغو عضویت
-await notificationMaster.unsubscribeFromTopic('offers');
-final updatedTopics = await notificationMaster.getSubscribedTopics();
-await myApi.updateDevice(token: token!, topics: updatedTopics);
+// توقف همه
+await nm.stopNotificationPolling();
+await nm.stopForegroundService();
 ```
 
 ---
 
-## مدیریت سرویس نوتیفیکیشن
+## مثال‌های کامل
 
-پلاگین یک سیستم مدیریت یکپارچه سرویس نوتیفیکیشن فراهم می‌کند که به شما اجازه می‌دهد روش تحویل نوتیفیکیشن را انتخاب کنید. فقط یک سرویس می‌تواند در هر زمان فعال باشد — شروع سرویس جدید به طور خودکار سرویس قبلی را متوقف می‌کند.
+### مثال ۱ — Firebase Push Notification
 
-### سرویس‌های موجود
+این مثال نشان می‌دهد چطور از Firebase Cloud Messaging (FCM) با این پلاگین برای دریافت نوتیفیکیشن‌های ارسالی از سرور استفاده کنید.
 
-| سرویس | متد | مصرف باتری | قابلیت اطمینان | مورد استفاده |
-|-------|-----|-----------|---------------|-------------|
-| **Polling** | `startNotificationPolling()` | کم | متوسط | بررسی‌های دوره‌ای پس‌زمینه (هر ۱۵+ دقیقه) |
-| **Foreground Service** | `startForegroundService()` | زیاد | بالا | نوتیفیکیشن‌های لحظه‌ای مداوم |
-| **Firebase (FCM)** | `setFirebaseAsActiveService()` | خیلی کم | خیلی بالا | نوتیفیکیشن‌های push از سرور |
-
-### نحوه کار
-
-1. **انتخاب سرویس**: وقتی هر سرویس نوتیفیکیشنی را شروع می‌کنید، پلاگین نوع سرویس فعال را در SharedPreferences ذخیره کرده و هر سرویس در حال اجرای قبلی را متوقف می‌کند.
-
-2. **تغییر خودکار**: اگر Polling را شروع کنید در حالی که Foreground Service در حال اجراست، Foreground Service به طور خودکار متوقف می‌شود.
-
-3. **حفظ وضعیت**: وضعیت سرویس فعال در بازراهای مجدد اپ حفظ می‌شود. می‌توانید بررسی کنید کدام سرویس فعال است با `getActiveNotificationService()`.
-
-### مثال: رابط مدیریت سرویس
+**پیش‌نیاز:** پکیج‌های `firebase_messaging` و `firebase_core` را به `pubspec.yaml` اضافه کنید و راه‌اندازی پروژه Firebase را کامل کنید (google-services.json / GoogleService-Info.plist).
 
 ```dart
-class NotificationServiceManager extends StatefulWidget {
-  @override
-  State<NotificationServiceManager> createState() => _NotificationServiceManagerState();
-}
-
-class _NotificationServiceManagerState extends State<NotificationServiceManager> {
-  final _nm = NotificationMaster();
-  String _activeService = 'none';
-
-  @override
-  void initState() {
-    super.initState();
-    _checkActiveService();
-  }
-
-  Future<void> _checkActiveService() async {
-    final service = await _nm.getActiveNotificationService();
-    setState(() => _activeService = service);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // نمایشگر وضعیت
-        Text('فعال: $_activeService',
-          style: TextStyle(fontWeight: FontWeight.bold)),
-
-        // گزینه Polling
-        ElevatedButton(
-          onPressed: () async {
-            await _nm.startNotificationPolling(
-              pollingUrl: 'https://api.example.com/notifications',
-              intervalMinutes: 15,
-            );
-            _checkActiveService();
-          },
-          child: Text('شروع Polling'),
-        ),
-
-        // گزینه Foreground Service
-        ElevatedButton(
-          onPressed: () async {
-            await _nm.startForegroundService(
-              pollingUrl: 'https://api.example.com/notifications',
-              intervalMinutes: 5,
-            );
-            _checkActiveService();
-          },
-          child: Text('شروع Foreground Service'),
-        ),
-
-        // گزینه Firebase
-        ElevatedButton(
-          onPressed: () async {
-            await _nm.setFirebaseAsActiveService();
-            _checkActiveService();
-          },
-          child: Text('استفاده از Firebase (FCM)'),
-        ),
-
-        // توقف همه
-        ElevatedButton(
-          onPressed: () async {
-            await _nm.stopNotificationPolling();
-            await _nm.stopForegroundService();
-            _checkActiveService();
-          },
-          style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-          child: Text('توقف همه سرویس‌ها'),
-        ),
-      ],
-    );
-  }
-}
-```
-
-### چرخه حیات سرویس
-
-```
-شروع اپ
-    │
-    ▼
-getActiveNotificationService() → "none"
-    │
-    ▼
-startNotificationPolling() → "polling" (Background WorkManager/BGTaskScheduler)
-    │
-    ▼
-startForegroundService() → "foreground" (polling به طور خودکار متوقف می‌شود)
-    │
-    ▼
-setFirebaseAsActiveService() → "firebase" (foreground service به طور خودکار متوقف می‌شود)
-    │
-    ▼
-stopNotificationPolling() + stopForegroundService() → "none"
-```
-
----
-
-## استفاده از UnifiedNotificationService
-
-این کلاس یک رابط یکپارچه برای تمام پلتفرم‌ها فراهم می‌کند.
-
-### مقداردهی اولیه
-
-```dart
-import 'package:notification_master/src/unified_notification_service.dart';
-
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  
-  await UnifiedNotificationService.initialize(appName: 'اپ من');
-  
-  runApp(MyApp());
-}
-```
-
-### نمایش نوتیفیکیشن
-
-```dart
-// نوتیفیکیشن ساده
-await UnifiedNotificationService.showNotification(
-  title: 'سلام',
-  message: 'یک پیام جدید دارید',
-);
-
-// با تصویر
-await UnifiedNotificationService.showImageNotification(
-  title: 'عکس جدید',
-  message: 'دوستت عکس فرستاد',
-  imageUrl: 'https://example.com/photo.jpg',
-);
-
-// با متن بلند
-await UnifiedNotificationService.showBigTextNotification(
-  title: 'خبرنامه',
-  message: 'خلاصه...',
-  bigText: 'متن کامل خبرنامه اینجاست...',
-);
-
-// با دکمه Action
-await UnifiedNotificationService.showNotificationWithActions(
-  title: 'یادآوری',
-  message: 'جلسه در ۱۵ دقیقه دیگر',
-  actions: ['باشه', 'بعداً یادم بیار'],
-  onActionClick: (index) {
-    print('کاربر روی دکمه $index کلیک کرد');
-  },
-);
-```
-
-### بررسی پلتفرم
-
-```dart
-print(UnifiedNotificationService.getPlatformName()); // "Android", "iOS", ...
-print(UnifiedNotificationService.isDesktop); // true/false
-print(UnifiedNotificationService.isMobile);  // true/false
-print(UnifiedNotificationService.isWeb);     // true/false
-print(UnifiedNotificationService.isInitialized); // true/false
-```
-
----
-
-## استفاده در Web
-
-### تفاوت‌های مهم Web با پلتفرم‌های دیگر
-
-| ویژگی | Mobile/Desktop | Web |
-|-------|---------------|-----|
-| Permission | سیستم‌عامل | مرورگر |
-| Foreground Service | ✅ | ❌ |
-| Background Polling | ✅ | ❌ |
-| Channels | ✅ Android | ❌ (no-op) |
-| Actions | ✅ | محدود |
-| Image | ✅ | بستگی به مرورگر |
-
-### مثال کامل Web
-
-```dart
-import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:notification_master/notification_master.dart';
-
-class WebNotificationHelper {
-  static final _nm = NotificationMaster();
-
-  static Future<bool> setup() async {
-    if (!kIsWeb) return false;
-
-    // بررسی support مرورگر
-    final hasPermission = await _nm.checkNotificationPermission();
-    if (hasPermission) return true;
-
-    // درخواست Permission (مرورگر یک پنجره نشان می‌دهد)
-    final granted = await _nm.requestNotificationPermission();
-    if (!granted) {
-      print('کاربر Permission رد کرد یا مرورگر پشتیبانی نمی‌کند');
-      return false;
-    }
-    return true;
-  }
-
-  static Future<void> notify(String title, String message) async {
-    if (!kIsWeb) return;
-    await _nm.showNotification(title: title, message: message);
-  }
-}
-
-// استفاده
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  
-  if (kIsWeb) {
-    await WebNotificationHelper.setup();
-  }
-  
-  runApp(MyApp());
-}
-```
-
----
-
-## مثال کامل - راه‌اندازی در اپ
-
-```dart
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:notification_master/notification_master.dart';
-import 'package:notification_master/src/unified_notification_service.dart';
+
+// هندلر پیام پس‌زمینه — باید یک تابع سطح بالا (top-level) باشد
+@pragma('vm:entry-point')
+Future<void> _firebaseBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  final nm = NotificationMaster();
+  await nm.showStyledNotification(
+    title: message.notification?.title ?? 'پیام جدید',
+    message: message.notification?.body ?? '',
+    channelId: 'fcm_channel',
+  );
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await UnifiedNotificationService.initialize(appName: 'اپ من');
-  runApp(MyApp());
+  await Firebase.initializeApp();
+  FirebaseMessaging.onBackgroundMessage(_firebaseBackgroundHandler);
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
   @override
-  Widget build(BuildContext context) => MaterialApp(home: HomePage());
-}
-
-class HomePage extends StatefulWidget {
-  @override
-  State<HomePage> createState() => _HomePageState();
-}
-
-class _HomePageState extends State<HomePage> {
-  final _nm = NotificationMaster();
-
-  Future<void> _init() async {
-    final has = await _nm.checkNotificationPermission();
-    if (!has) await _nm.requestNotificationPermission();
-
-    // Android: ساخت کانال سفارشی
-    if (!kIsWeb) {
-      await _nm.createCustomChannel(
-        channelId: 'main',
-        channelName: 'اعلان‌های اصلی',
-        importance: NotificationImportance.high,
-        enableVibration: true,
-      );
-    }
+  Widget build(BuildContext context) {
+    return const MaterialApp(home: FirebaseDemoPage());
   }
+}
+
+class FirebaseDemoPage extends StatefulWidget {
+  const FirebaseDemoPage({super.key});
+  @override
+  State<FirebaseDemoPage> createState() => _FirebaseDemoPageState();
+}
+
+class _FirebaseDemoPageState extends State<FirebaseDemoPage> {
+  final _nm = NotificationMaster();
+  String _token = '';
+  String _status = '';
 
   @override
   void initState() {
     super.initState();
-    _init();
+    _setup();
+  }
+
+  Future<void> _setup() async {
+    // ۱. درخواست permission
+    final granted = await _nm.checkNotificationPermission();
+    if (!granted) await _nm.requestNotificationPermission();
+
+    // ۲. ساخت کانال برای پیام‌های FCM (Android)
+    await _nm.createCustomChannel(
+      channelId: 'fcm_channel',
+      channelName: 'پیام‌های Push',
+      channelDescription: 'نوتیفیکیشن‌های Firebase Cloud Messaging',
+      importance: NotificationImportance.high,
+      enableVibration: true,
+      enableSound: true,
+    );
+
+    // ۳. Firebase را به عنوان سرویس فعال علامت‌گذاری کنید
+    await _nm.setFirebaseAsActiveService();
+
+    // ۴. توکن FCM را برای ارسال به سرور دریافت کنید
+    final token = await _nm.getDeviceToken();
+    setState(() => _token = token ?? 'در دسترس نیست');
+
+    // ۵. عضویت در topic
+    await _nm.subscribeToTopic('all_users');
+
+    // ۶. مدیریت پیام‌های foreground
+    FirebaseMessaging.onMessage.listen((message) {
+      _nm.showStyledNotification(
+        title: message.notification?.title ?? 'پیام جدید',
+        message: message.notification?.body ?? '',
+        channelId: 'fcm_channel',
+      );
+    });
+
+    // ۷. مدیریت کلیک روی نوتیفیکیشن در حالت background
+    FirebaseMessaging.onMessageOpenedApp.listen((message) {
+      final route = message.data['route'];
+      if (route != null) {
+        Navigator.of(context).pushNamed(route);
+      }
+    });
+
+    setState(() => _status = 'Firebase آماده است');
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('نوتیفیکیشن تست')),
-      body: Column(
-        children: [
-          ElevatedButton(
-            onPressed: () => _nm.showNotification(
-              title: 'تست',
-              message: 'این یک تست است',
-              channelId: 'main',
+      appBar: AppBar(title: const Text('دمو Firebase Push')),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('وضعیت: $_status'),
+            const SizedBox(height: 12),
+            Text(
+              'توکن FCM:',
+              style: Theme.of(context).textTheme.titleSmall,
             ),
-            child: Text('نوتیفیکیشن ساده'),
-          ),
-          ElevatedButton(
-            onPressed: () => _nm.startNotificationPolling(
-              pollingUrl: 'https://api.example.com/notifications',
-              intervalMinutes: 15,
+            SelectableText(_token, style: const TextStyle(fontSize: 11)),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () async {
+                // تست: نمایش یک نوتیفیکیشن محلی
+                await _nm.showStyledNotification(
+                  title: 'نوتیفیکیشن تست',
+                  message: 'این یک شبیه‌سازی پیام Firebase است',
+                  channelId: 'fcm_channel',
+                );
+              },
+              child: const Text('تست نوتیفیکیشن محلی'),
             ),
-            child: Text('شروع Polling'),
-          ),
-          ElevatedButton(
-            onPressed: () => _nm.stopNotificationPolling(),
-            child: Text('توقف Polling'),
-          ),
-        ],
+            const SizedBox(height: 8),
+            ElevatedButton(
+              onPressed: () async {
+                final topics = await _nm.getSubscribedTopics();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('تاپیک‌ها: $topics')),
+                );
+              },
+              child: const Text('نمایش تاپیک‌های فعال'),
+            ),
+            const SizedBox(height: 16),
+            // ارسال از سرور با FCM HTTP v1 API:
+            Container(
+              padding: const EdgeInsets.all(12),
+              color: Colors.grey.shade100,
+              child: const Text(
+                'ارسال از سرور شما:\n'
+                'POST https://fcm.googleapis.com/v1/projects/{id}/messages:send\n'
+                '{\n'
+                '  "message": {\n'
+                '    "token": "<device_token>",\n'
+                '    "notification": { "title": "سلام", "body": "پیام جدید" },\n'
+                '    "data": { "route": "/home" }\n'
+                '  }\n'
+                '}',
+                style: TextStyle(fontSize: 11, fontFamily: 'monospace'),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1406,61 +734,259 @@ class _HomePageState extends State<HomePage> {
 
 ---
 
-## سطوح اهمیت (NotificationImportance)
+### مثال ۲ — HTTP Polling (بدون Firebase)
 
-| مقدار | توضیح |
-|-------|-------|
-| `NotificationImportance.high` | صدا + ویبره + بنر بالا |
-| `NotificationImportance.defaultImportance` | رفتار پیش‌فرض |
-| `NotificationImportance.low` | بدون صدا |
-| `NotificationImportance.min` | فقط در نوار اعلان |
+این مثال نشان می‌دهد چطور سرور خودتان را برای نوتیفیکیشن poll کنید — بدون نیاز به Firebase.
+
+**نحوه کار:** پلاگین به‌صورت دوره‌ای endpoint API شما را صدا می‌زند. وقتی سرور نوتیفیکیشن جدید دارد، آن‌ها را به صورت JSON برمی‌گرداند و پلاگین آن‌ها را به‌صورت محلی نمایش می‌دهد.
+
+**فرمت JSON سرور:**
+
+```json
+{
+  "notifications": [
+    {
+      "id": 1,
+      "title": "پیام جدید",
+      "message": "۳ پیام خوانده‌نشده دارید",
+      "imageUrl": "https://example.com/avatar.png",
+      "bigText": "متن گسترش‌یافته اختیاری",
+      "importance": "high",
+      "channelId": "messages"
+    }
+  ]
+}
+```
+
+وقتی چیز جدیدی نیست `"notifications": []` برگردانید — پلاگین بی‌صدا skip می‌کند.
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:notification_master/notification_master.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return const MaterialApp(home: PollingDemoPage());
+  }
+}
+
+class PollingDemoPage extends StatefulWidget {
+  const PollingDemoPage({super.key});
+  @override
+  State<PollingDemoPage> createState() => _PollingDemoPageState();
+}
+
+class _PollingDemoPageState extends State<PollingDemoPage> {
+  final _nm = NotificationMaster();
+  String _activeService = 'none';
+
+  // آدرس endpoint واقعی سرور خود را بنویسید
+  static const _pollingUrl = 'https://your-server.com/api/notifications';
+
+  @override
+  void initState() {
+    super.initState();
+    _setup();
+  }
+
+  Future<void> _setup() async {
+    // ۱. درخواست permission
+    final granted = await _nm.checkNotificationPermission();
+    if (!granted) await _nm.requestNotificationPermission();
+
+    // ۲. ساخت کانال (Android)
+    await _nm.createCustomChannel(
+      channelId: 'polling_channel',
+      channelName: 'نوتیفیکیشن‌های Polling',
+      channelDescription: 'نوتیفیکیشن‌های دریافتی از سرور',
+      importance: NotificationImportance.high,
+      enableVibration: true,
+      enableSound: true,
+    );
+
+    // ۳. بررسی سرویس فعال
+    final service = await _nm.getActiveNotificationService();
+    setState(() => _activeService = service);
+  }
+
+  // گزینه الف: WorkManager / BGTaskScheduler (باتری‌دوست، ممکن است OS محدود کند)
+  Future<void> _startPolling() async {
+    await _nm.startNotificationPolling(
+      pollingUrl: _pollingUrl,
+      intervalMinutes: 15, // حداقل WorkManager / BGTaskScheduler
+    );
+    final s = await _nm.getActiveNotificationService();
+    setState(() => _activeService = s);
+  }
+
+  // گزینه ب: Foreground Service (فقط Android — پایدار، بدون محدودیت)
+  Future<void> _startForegroundService() async {
+    await _nm.startForegroundService(
+      pollingUrl: _pollingUrl,
+      intervalMinutes: 1,
+      channelId: 'polling_channel',
+      channelName: 'سرویس Polling',
+      channelDescription: 'سرویس polling پس‌زمینه',
+      importance: NotificationImportance.low,
+      enableVibration: false,
+      enableSound: false,
+    );
+    final s = await _nm.getActiveNotificationService();
+    setState(() => _activeService = s);
+  }
+
+  // گزینه ج: Background Daemon (Windows / Linux / macOS — بعد از بسته شدن اپ هم کار می‌کند)
+  Future<void> _startDaemon() async {
+    final ok = await _nm.startBackgroundPollingService(
+      pollingUrl: _pollingUrl,
+      intervalMinutes: 1,
+    );
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('باینری daemon پیدا نشد. ابتدا flutter build را اجرا کنید.'),
+        ),
+      );
+      return;
+    }
+    final s = await _nm.getActiveNotificationService();
+    setState(() => _activeService = s);
+  }
+
+  Future<void> _stopAll() async {
+    await _nm.stopNotificationPolling();
+    await _nm.stopForegroundService();
+    await _nm.stopBackgroundPollingService();
+    final s = await _nm.getActiveNotificationService();
+    setState(() => _activeService = s);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('دمو HTTP Polling')),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              color: _activeService == 'none'
+                  ? Colors.grey.shade200
+                  : Colors.green.shade100,
+              child: Text(
+                'سرویس فعال: $_activeService',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text('Android — WorkManager (باتری‌دوست):'),
+            const SizedBox(height: 4),
+            ElevatedButton(
+              onPressed: _startPolling,
+              child: const Text('شروع Polling (هر ۱۵ دقیقه)'),
+            ),
+            const SizedBox(height: 12),
+            const Text('Android — Foreground Service (پایدار):'),
+            const SizedBox(height: 4),
+            ElevatedButton(
+              onPressed: _startForegroundService,
+              child: const Text('شروع Foreground Service (هر ۱ دقیقه)'),
+            ),
+            const SizedBox(height: 12),
+            const Text('Windows / Linux / macOS — Background Daemon:'),
+            const SizedBox(height: 4),
+            ElevatedButton(
+              onPressed: _startDaemon,
+              child: const Text('شروع Background Daemon (هر ۱ دقیقه)'),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: _stopAll,
+              child: const Text(
+                'توقف همه',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'نکات پلتفرم:\n'
+              '• Android WorkManager: حداقل ~۱۵ دقیقه، OS ممکن است بیشتر تاخیر بدهد\n'
+              '• Android ForegroundService: نوتیفیکیشن دائمی نشان می‌دهد، بدون تاخیر\n'
+              '• iOS: BGTaskScheduler حداقل ~۱۵ دقیقه، زمان‌بندی دقیق با OS است\n'
+              '• macOS/Windows/Linux daemon: بعد از بسته شدن اپ هم کار می‌کند',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+```
+
+---
+
+## ویژگی‌های پیشرفته Windows: ۷ نوع نوتیفیکیشن
+
+```dart
+// Styled (حرفه‌ای، با attribution text)
+await nm.showStyledNotification(
+  title: 'یادآوری جلسه',
+  message: 'جلسه تیم ۱۵ دقیقه دیگر شروع می‌شود',
+);
+
+// Heads-Up / Alarm (صدای آلارم حلقه‌ای، باقی می‌ماند)
+await nm.showHeadsUpNotification(
+  title: '⏰ هشدار تایمر',
+  message: 'تایمر ۵ دقیقه‌ای شما تمام شد',
+);
+
+// Full Screen / IncomingCall (صدای زنگ حلقه‌ای)
+await nm.showFullScreenNotification(
+  title: '📞 تماس ورودی',
+  message: 'جان دو در حال تماس با شماست...',
+);
+```
+
+📚 همه ۷ نوع با گزینه‌های صدا: **[WINDOWS_NOTIFICATIONS_GUIDE.md](WINDOWS_NOTIFICATIONS_GUIDE.md)**
+
+---
+
+## رفع مشکلات
+
+**کانال سفارشی صدا ندارد** — مطمئن شوید هنگام `createCustomChannel()` مقدار `enableSound: true` را تنظیم کرده‌اید.
+
+**آیکون اپ در نوتیفیکیشن نیست** — به جای `showNotification()` از `showStyledNotification()` استفاده کنید.
+
+**نوتیفیکیشن در Android 13+ نمایش داده نمی‌شود** — قبل از هر نوتیفیکیشنی `requestNotificationPermission()` را صدا بزنید.
+
+**Polling در iOS اجرا نمی‌شود** — iOS BGTaskScheduler بر اساس صلاحدید OS اجرا می‌شود (حداقل ~۱۵ دقیقه). این رفتار طبیعی است.
+
+**Daemon در Windows شروع نمی‌شود** — ابتدا `flutter build windows` را اجرا کنید تا باینری `notification_master_poller.exe` کنار اپ شما ساخته شود.
 
 ---
 
 ## نکات مهم
 
-- **Permission های Android:** پلاگین هیچ permission ای را به‌صورت خودکار اعلام **نمی‌کند**. فقط permissionهایی که اپ شما واقعاً نیاز دارد را به `android/app/src/main/AndroidManifest.xml` اضافه کنید — بخش راه‌اندازی Android را ببینید.
-- **Android 13+**: حتماً `POST_NOTIFICATIONS` Permission را در runtime از کاربر درخواست دهید.
-- **Web**: مرورگر Safari پشتیبانی محدود دارد.
-- **Foreground Service**: فقط Android پشتیبانی می‌کند.
-- **Background Polling**: در Web کار نمی‌کند؛ فقط در حین باز بودن اپ polling انجام می‌شود.
-- **کانال‌ها**: فقط Android 8.0+ پشتیبانی می‌کند؛ در سایر پلتفرم‌ها نادیده گرفته می‌شود.
-- **آیکون اپلیکیشن**: از `showStyledNotification()` برای نمایش آیکون اپلیکیشن در نوتیفیکیشن استفاده کنید. ⭐
-- **صدا**: کانال‌های سفارشی حالا به درستی با `enableSound: true` صدا پخش می‌کنند. ✅
-- **iOS**: نیاز به iOS 14.0+ دارد. از iOS 14 تا iOS 26+ پشتیبانی می‌کند. 📱
-- **Polling در macOS**: از یک `Timer` داخلی استفاده می‌کند — با بسته شدن اپ polling متوقف می‌شود. `BGTaskScheduler` فقط در iOS موجود است.
-
----
-
-## تغییرات نسخه جدید
-
-### ✅ مشکلات حل شده:
-1. **صدا**: کانال‌های سفارشی حالا به درستی صدای نوتیفیکیشن را پخش می‌کنند
-2. **آیکون اپلیکیشن**: نوتیفیکیشن‌ها حالا آیکون اپلیکیشن را نمایش می‌دهند (از `showStyledNotification()` استفاده کنید)
-3. **متن کامل**: پیام‌ها به صورت کامل و بدون کوتاه شدن نمایش داده می‌شوند
-4. **لاگ‌های بهتر**: لاگ‌های جامع برای دیباگ اضافه شده‌اند
-5. **iOS 14.0+**: سازگاری گسترده (iPhone 6s و جدیدتر، ~95% دستگاه‌های فعال)
-
-### 🆕 متدهای جدید:
-- `showStyledNotification()`: نوتیفیکیشن با آیکون اپلیکیشن و متن کامل (توصیه می‌شود)
-- `showHeadsUpNotification()`: نوتیفیکیشن که از بالای صفحه ظاهر می‌شود
-- `showFullScreenNotification()`: نوتیفیکیشن تمام صفحه برای هشدارهای فوری
-- `getDeviceToken()`: دریافت توکن دستگاه برای نوتیفیکیشن‌های push (FCM/APNS)
-- `subscribeToTopic()`: عضویت در یک topic نوتیفیکیشن برای ارسال هدفمند
-- `unsubscribeFromTopic()`: لغو عضویت از یک topic نوتیفیکیشن
-
-### 📚 مستندات:
-- فایل `NOTIFICATION_TYPES_FA.md` را برای مستندات کامل فارسی ببینید
-- شامل مثال‌ها و راهنمای رفع مشکلات
-
-### 🔧 رفع مشکلات Build:
-- macOS: خطاهای کامپایل BGTaskScheduler برطرف شد
-- iOS: به iOS 14.0 deployment target تنظیم شد
-- حذف وابستگی `workmanager` — polling پس‌زمینه حالا از APIهای بومی استفاده می‌کند
-- برای جزئیات `BUILD_FIXES.md` را ببینید
+- پلاگین permission های Android را به‌صورت خودکار اعلام **نمی‌کند**. فقط آنچه واقعاً نیاز دارید را اضافه کنید.
+- Foreground Service فقط در Android موجود است. در دسکتاپ از background daemon استفاده کنید.
+- Background polling در Web موجود نیست.
+- کانال‌ها فقط در Android 8.0+ مؤثرند؛ در جاهای دیگر نادیده گرفته می‌شوند.
+- iOS نیاز به iOS 14.0+ دارد.
+- Polling در macOS از یک `Timer` داخلی استفاده می‌کند — با بسته شدن اپ متوقف می‌شود. برای حالت daemon از `startBackgroundPollingService()` استفاده کنید.
 
 ---
 
 ## لایسنس
 
-MIT License - برای جزئیات فایل LICENSE را ببینید.
+MIT License — برای جزئیات فایل [LICENSE](LICENSE) را ببینید.
